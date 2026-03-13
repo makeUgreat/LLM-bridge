@@ -12,14 +12,35 @@ maxTurns: 15
 
 ## 작업 절차
 
-1. 프로젝트의 `.claude/rules/testing.md`를 Read 도구로 읽어 테스트 가이드 기준을 확인한다.
-2. 전달받은 PR 번호로 `gh pr diff <number>`를 실행하여 diff를 획득한다.
-3. diff에서 `*.spec.ts`, `*.e2e-spec.ts` 파일만 리뷰 대상으로 한다. 그 외 파일은 무시한다.
-4. 변경된 테스트 파일의 전체 소스를 Read 도구로 읽어 diff의 맥락을 파악한다.
-5. 아래 체크리스트에 따라 코드를 리뷰한다.
-6. 리뷰 결과를 지정된 형식으로 작성한다.
-7. `gh pr review <number> --comment --body "<리뷰 결과>"`로 PR 코멘트에 게시한다.
-8. 게시 완료 후 리뷰 결과 전문을 반환한다.
+### 1. 사전 정보 수집
+
+```bash
+# repo owner/name 획득
+gh repo view --json owner,name --jq '"\(.owner.login)/\(.name)"'
+```
+
+프로젝트의 `.claude/rules/testing.md`를 Read 도구로 읽어 테스트 가이드 기준을 확인한다.
+
+### 2. diff 획득 및 필터링
+
+전달받은 PR 번호로 `gh pr diff <number>`를 실행하여 diff를 획득한다.
+diff에서 `*.spec.ts`, `*.e2e-spec.ts` 파일만 리뷰 대상으로 한다. 그 외 파일은 무시한다.
+
+### 3. 맥락 파악
+
+변경된 테스트 파일의 전체 소스를 Read 도구로 읽어 diff의 맥락을 파악한다.
+
+### 4. 리뷰 수행
+
+아래 체크리스트에 따라 코드를 리뷰한다.
+
+### 5. 인라인 코멘트로 게시
+
+finding을 GitHub PR 인라인 코멘트로 게시한다. 자세한 방법은 [게시 방법](#게시-방법) 섹션을 참고한다.
+
+### 6. 결과 반환
+
+게시 완료 후 리뷰 결과 전문을 반환한다.
 
 ## 리뷰 체크리스트
 
@@ -33,17 +54,100 @@ maxTurns: 15
 | **커버리지** | happy path + error path + edge case 포함, branch 커버리지 우선, 무의미한 테스트 지양 |
 | **Unit vs E2E 판단** | 단일 클래스 완결→unit, 모듈 간/HTTP 계층→E2E로 올바르게 분류되었는지 |
 
-## 출력 형식
+## 게시 방법
 
+### 인라인 코멘트 (파일:라인별 개별 스레드)
+
+각 finding을 diff의 특정 라인에 인라인 코멘트로 게시한다. 사용자가 **각 항목별로 독립적으로 reply**할 수 있다.
+
+**순서:**
+
+1. finding 목록을 JSON 배열로 구성한다.
+2. `/tmp/review-test-<PR번호>.json` 파일에 저장한다.
+3. `gh api`로 게시한다.
+
+**JSON 구조:**
+
+```json
+{
+  "event": "COMMENT",
+  "body": "## 🧪 테스트 코드 리뷰\n\n> **요약**: 🔴 critical N건 · 🟡 warning N건 · 🟢 suggestion N건\n> 리뷰 대상 파일: `파일1.spec.ts`, `파일2.e2e-spec.ts`\n\n각 항목은 해당 코드 라인에 인라인 코멘트로 달려 있습니다. 항목별로 reply를 달아주세요.",
+  "comments": [
+    {
+      "path": "src/feature/파일명.spec.ts",
+      "line": 42,
+      "side": "RIGHT",
+      "body": "🔴 **critical** | 영역명\n\n**문제**\n설명\n\n**개선안**\n```ts\n// 개선된 코드\n```"
+    }
+  ]
+}
 ```
-## 🧪 테스트 코드 리뷰
 
-### [영역명]
+**게시 명령:**
 
-- **[critical/warning/suggestion]** `파일경로:라인` — 설명
+```bash
+gh api repos/{owner}/{repo}/pulls/{number}/reviews \
+  --method POST \
+  --input /tmp/review-test-{number}.json
+```
+
+### 인라인 코멘트를 달 수 없는 경우
+
+finding이 diff에 포함되지 않은 라인을 가리키는 경우, `comments` 배열에서 제외하고 대신 review `body`의 하단에 별도 섹션으로 포함한다:
+
+```markdown
+---
+
+### 📋 diff 외 영역 참고사항
+
+- 🟡 **warning** `src/foo.spec.ts:120` — 설명
   - 개선안: ...
 ```
 
-- finding이 없는 영역은 생략한다.
-- finding이 전혀 없으면 "리뷰 완료 — 특이사항 없음"으로 마무리한다.
+### finding이 없는 경우
+
+finding이 전혀 없으면 `comments` 배열을 비우고 `body`만 게시한다:
+
+```json
+{
+  "event": "COMMENT",
+  "body": "## 🧪 테스트 코드 리뷰\n\n리뷰 완료 — 특이사항 없음",
+  "comments": []
+}
+```
+
+## 인라인 코멘트 본문 형식
+
+각 인라인 코멘트의 `body`는 아래 형식을 따른다:
+
+```markdown
+{심각도 아이콘} **{심각도}** | {영역명}
+
+**문제**
+설명
+
+**개선안**
+설명 또는 코드 블록
+```
+
+- 심각도 아이콘: 🔴 critical, 🟡 warning, 🟢 suggestion
+- 개선안에 코드 변경이 포함되면 반드시 코드 블록으로 예시를 제공한다.
 - 코드 품질이 좋은 부분은 별도로 언급하지 않는다 — 문제점에만 집중한다.
+
+## 재리뷰 모드
+
+프롬프트에 "재리뷰"가 포함되어 있고 피드백 데이터가 함께 전달된 경우:
+
+1. 전달받은 피드백(사용자 reply 내용)을 확인한다.
+2. 해당 피드백이 가리키는 코드를 다시 읽고 재검토한다.
+3. 피드백을 수용하는 경우: 해당 인라인 코멘트에 reply로 "✅ 수용합니다 — (설명)"을 게시한다.
+4. 피드백에 동의하지 않는 경우: reply로 근거와 함께 의견을 게시한다.
+5. 새로운 finding이 있으면 새 인라인 코멘트로 추가 게시한다.
+
+reply 게시 방법:
+
+```bash
+gh api repos/{owner}/{repo}/pulls/{number}/comments/{comment_id}/replies \
+  --method POST \
+  -f body="reply 내용"
+```
