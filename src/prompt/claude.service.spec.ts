@@ -272,19 +272,37 @@ describe("ClaudeService", () => {
   });
 
   describe("error 이벤트", () => {
-    it("error 타입을 방출 후 complete한다", async () => {
+    it("subscriber.error로 에러를 전파한다", async () => {
       const promise = firstValueFrom(
         service.execute(defaultOptions()).pipe(toArray())
       );
 
       fakeProc.emit("error", new Error("spawn failed"));
 
-      const events = await promise;
-      expect(events).toHaveLength(1);
-      expect(events[0].data).toEqual({
-        type: "error",
-        error: "spawn failed",
+      await expect(promise).rejects.toThrow("spawn failed");
+    });
+
+    it("프로세스가 아직 살아있으면 SIGTERM으로 종료한다", () => {
+      service.execute(defaultOptions()).subscribe({
+        error: () => {
+          // 에러 핸들러 등록 (unhandled error 방지)
+        },
       });
+
+      fakeProc.emit("error", new Error("spawn failed"));
+
+      expect(fakeProc.kill).toHaveBeenCalledWith("SIGTERM");
+    });
+
+    it("이미 killed 상태면 kill을 호출하지 않는다", () => {
+      service.execute(defaultOptions()).subscribe({
+        error: () => {},
+      });
+
+      fakeProc.killed = true;
+      fakeProc.emit("error", new Error("spawn failed"));
+
+      expect(fakeProc.kill).not.toHaveBeenCalled();
     });
   });
 

@@ -112,10 +112,10 @@ export class ClaudeService {
       });
 
       child.on("error", (err) => {
-        subscriber.next({
-          data: { type: "error", error: err.message },
-        } as MessageEvent);
-        subscriber.complete();
+        if (!child.killed) {
+          child.kill("SIGTERM");
+        }
+        subscriber.error(err);
       });
 
       // 구독 해제 시 프로세스 정리
