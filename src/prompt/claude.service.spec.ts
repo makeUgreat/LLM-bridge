@@ -1,13 +1,14 @@
 import { EventEmitter } from "events";
 import { firstValueFrom, toArray } from "rxjs";
+import { spawn } from "child_process";
 import { ClaudeService, ClaudeOptions } from "./claude.service";
 import { SessionService } from "../session/session.service";
 
-let mockSpawn: jest.Mock;
-
 jest.mock("child_process", () => ({
-  spawn: (...args: unknown[]) => mockSpawn(...args),
+  spawn: jest.fn(),
 }));
+
+const mockSpawn = jest.mocked(spawn);
 
 function createFakeProcess() {
   const proc = new EventEmitter() as EventEmitter & {
@@ -34,7 +35,11 @@ describe("ClaudeService", () => {
     sessionService = new SessionService();
     service = new ClaudeService(sessionService);
     fakeProc = createFakeProcess();
-    mockSpawn = jest.fn(() => fakeProc);
+    mockSpawn.mockReturnValue(fakeProc as any);
+  });
+
+  afterEach(() => {
+    mockSpawn.mockReset();
   });
 
   function defaultOptions(overrides?: Partial<ClaudeOptions>): ClaudeOptions {
