@@ -5,19 +5,44 @@
 ```
 src/
   session/
-    session.service.ts
-    session.service.spec.ts        # unit test
-    session.controller.spec.ts     # unit test
+    domain/
+      session.entity.ts
+      session.entity.spec.ts           # unit test (도메인)
+      session-repository.port.ts
+    application/
+      session.service.ts
+      session.service.spec.ts          # unit test (서비스)
+    adapter/
+      in/
+        session.controller.ts
+        session.controller.spec.ts     # unit test (컨트롤러)
+      out/
+        in-memory-session.repository.ts
+        in-memory-session.repository.spec.ts
+    session.module.ts
   prompt/
-    claude.service.spec.ts
-    prompt.controller.spec.ts
+    domain/
+      claude-options.vo.ts
+      llm.port.ts
+      session-reader.port.ts
+    application/
+      prompt.service.ts
+      prompt.service.spec.ts
+    adapter/
+      in/
+        prompt.controller.ts
+        prompt.controller.spec.ts
+      out/
+        claude-cli.adapter.ts
+        claude-cli.adapter.spec.ts
+    prompt.module.ts
 test/
   jest-e2e.json
-  session.e2e-spec.ts              # e2e test
-  prompt.e2e-spec.ts               # e2e test
+  session.e2e-spec.ts                  # e2e test
+  prompt.e2e-spec.ts                   # e2e test
 ```
 
-- Unit 테스트: 대상 파일과 같은 디렉토리에 `*.spec.ts`로 생성
+- Unit 테스트: 대상 파일과 같은 디렉토리에 `*.spec.ts`로 생성 (레이어별 경로에 맞춤)
 - E2E 테스트: 프로젝트 루트의 `test/` 디렉토리에 `*.e2e-spec.ts`로 생성
 
 ## 테스트 종류별 목적과 범위
@@ -243,6 +268,61 @@ jest.mock('child_process', () => ({
     return proc;
   }),
 }));
+```
+
+### 포트 mock (헥사고날 아키텍처)
+
+application service 테스트에서 포트(abstract class)를 mock하여 도메인 로직만 검증한다.
+
+```typescript
+import { Test, TestingModule } from '@nestjs/testing';
+import { SessionService } from './session.service';
+import { SessionRepositoryPort } from '../domain/session-repository.port';
+import { Session } from '../domain/session.entity';
+
+describe('SessionService', () => {
+  let service: SessionService;
+  let repository: SessionRepositoryPort;
+
+  const mockRepository: SessionRepositoryPort = {
+    save: jest.fn(),
+    findById: jest.fn(),
+    remove: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SessionService,
+        { provide: SessionRepositoryPort, useValue: mockRepository },
+      ],
+    }).compile();
+
+    service = module.get<SessionService>(SessionService);
+    repository = module.get<SessionRepositoryPort>(SessionRepositoryPort);
+  });
+
+  it('세션을 생성하고 저장한다', () => {
+    const session = new Session('id-1', null, new Date(), new Date());
+    jest.mocked(repository.save).mockReturnValue(session);
+
+    const result = service.create();
+
+    expect(repository.save).toHaveBeenCalled();
+    expect(result.id).toBe('id-1');
+  });
+});
+```
+
+E2E 테스트에서도 포트 단위로 mock을 주입한다:
+
+```typescript
+const moduleFixture = await Test.createTestingModule({
+  imports: [AppModule],
+})
+  .overrideProvider(LlmPort)
+  .useValue(mockLlmAdapter)
+  .compile();
 ```
 
 ## 테스트 작성 원칙

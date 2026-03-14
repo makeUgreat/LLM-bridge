@@ -30,29 +30,37 @@ diff에서 `*.spec.ts`, `*.e2e-spec.ts` 파일만 리뷰 대상으로 한다. �
 
 변경된 테스트 파일의 전체 소스를 Read 도구로 읽어 diff의 맥락을 파악한다.
 
-### 4. 리뷰 수행
+### 4. 리뷰 기준 수집
 
-아래 체크리스트에 따라 코드를 리뷰한다.
+`.claude/rules/testing.md`는 이미 1단계에서 읽었으므로, 추가로 `.claude/rules/` 디렉토리의 나머지 `*.md` 파일을 Read 도구로 읽는다.
+테스트 대상 코드의 레이어·역할을 파악하고, 관련 있는 규칙만 추출하여 리뷰 기준으로 삼는다.
 
-### 5. 인라인 코멘트로 게시
+예시:
+- 포트 mock 사용 여부 → `testing.md`의 포트 mock 패턴 적용
+- 테스트 파일 배치 → `hexagonal-structure.md`의 테스트 파일 배치 규칙 적용
+- 도메인 엔티티 테스트 → `hexagonal-domain.md`의 엔티티 규칙 참조
+
+### 5. 리뷰 수행
+
+수집한 프로젝트 규칙 + 아래 기본 원칙을 기준으로 코드를 리뷰한다.
+
+### 6. 인라인 코멘트로 게시
 
 finding을 GitHub PR 인라인 코멘트로 게시한다. 자세한 방법은 [게시 방법](#게시-방법) 섹션을 참고한다.
 
-### 6. 결과 반환
+### 7. 결과 반환
 
 게시 완료 후 리뷰 결과 전문을 반환한다.
 
-## 리뷰 체크리스트
+## 기본 원칙
 
-| 영역 | 검증 항목 |
-|------|----------|
-| **파일 배치** | unit(`*.spec.ts`)은 소스와 같은 디렉토리에 위치하는지, E2E(`*.e2e-spec.ts`)는 `test/` 디렉토리에 위치하는지 |
-| **테스트 구조** | `describe`로 클래스명→메서드명 그룹핑, `it` 설명이 한글인지, 테스트당 하나의 행위만 검증하는지 |
-| **AAA 패턴** | Arrange-Act-Assert 분리가 명확한지 |
-| **Mocking** | unit→외부 의존성 전부 mock, controller→서비스 mock, E2E→ClaudeService mock + 실제 wiring |
-| **테스트 격리** | 공유 mutable state 없음, `beforeEach`에서 상태 리셋 |
-| **커버리지** | happy path + error path + edge case 포함, branch 커버리지 우선, 무의미한 테스트 지양 |
-| **Unit vs E2E 판단** | 단일 클래스 완결→unit, 모듈 간/HTTP 계층→E2E로 올바르게 분류되었는지 |
+`testing.md`에서 도출한 기준과 함께, 아래 범용 원칙은 항상 적용한다:
+
+- **테스트 격리**: 공유 mutable state 없음, `beforeEach`에서 상태 리셋
+- **커버리지 균형**: happy path + error path + edge case 포함, 무의미한 테스트 지양
+- **AAA 패턴**: Arrange-Act-Assert 분리가 명확한지
+
+프로젝트 규칙(`testing.md` 등)에서 도출한 기준이 기본 원칙과 충돌하면 **프로젝트 규칙을 우선**한다.
 
 ## 게시 방법
 
