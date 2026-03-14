@@ -39,6 +39,13 @@ export class SessionService {
     }
   }
 
+  touch(id: string): void {
+    const session = this.sessions.get(id);
+    if (session) {
+      session.lastUsedAt = new Date();
+    }
+  }
+
   remove(id: string): boolean {
     return this.sessions.delete(id);
   }

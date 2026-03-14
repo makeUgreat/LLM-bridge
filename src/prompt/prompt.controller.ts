@@ -7,16 +7,36 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { IsArray, IsOptional, IsString } from "class-validator";
 import { Observable } from "rxjs";
+import { finalize } from "rxjs/operators";
 import { ClaudeService } from "./claude.service";
 import { SessionService } from "../session/session.service";
 
-interface PromptDto {
-  prompt: string;
+class PromptDto {
+  @IsString()
+  prompt!: string;
+
+  // TODO: 프롬프트 옵션별 정확한 validation 추가 예정 (DDD 리팩토링 시 함께 처리)
+  @IsOptional()
+  @IsString()
   model?: string;
+
+  @IsOptional()
+  @IsString()
   workingDir?: string;
+
+  @IsOptional()
+  @IsString()
   permissionMode?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   allowedTools?: string[];
+
+  @IsOptional()
+  @IsString()
   systemPrompt?: string;
 }
 
@@ -41,7 +61,7 @@ export class PromptController {
       throw new BadRequestException("prompt is required");
     }
 
-    session.lastUsedAt = new Date();
+    this.sessionService.touch(id);
 
     return this.claudeService.execute({
       prompt: body.prompt,
@@ -73,6 +93,6 @@ export class PromptController {
       permissionMode: body.permissionMode,
       allowedTools: body.allowedTools,
       systemPrompt: body.systemPrompt,
-    });
+    }).pipe(finalize(() => this.sessionService.remove(session.id)));
   }
 }
