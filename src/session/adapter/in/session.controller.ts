@@ -5,10 +5,10 @@ import {
   Delete,
   Param,
   NotFoundException,
-} from "@nestjs/common";
-import { SessionService } from "./session.service";
+} from '@nestjs/common';
+import { SessionService } from '../../application/session.service';
 
-@Controller("sessions")
+@Controller('sessions')
 export class SessionController {
   constructor(private readonly sessionService: SessionService) {}
 
@@ -23,11 +23,11 @@ export class SessionController {
     return this.sessionService.findAll();
   }
 
-  @Delete(":id")
-  remove(@Param("id") id: string) {
+  @Delete(':id')
+  remove(@Param('id') id: string) {
     const deleted = this.sessionService.remove(id);
     if (!deleted) {
-      throw new NotFoundException("Session not found");
+      throw new NotFoundException('Session not found');
     }
     return { deleted: true };
   }

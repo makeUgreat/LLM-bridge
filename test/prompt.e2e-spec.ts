@@ -3,14 +3,14 @@ import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { Observable } from "rxjs";
 import { AppModule } from "../src/app.module";
-import { ClaudeService } from "../src/prompt/claude.service";
+import { LlmPort } from "../src/prompt/domain/llm.port";
 
 describe("PromptController (e2e)", () => {
   let app: INestApplication;
-  let mockClaudeExecute: jest.Mock;
+  let mockLlmExecute: jest.Mock;
 
   beforeAll(async () => {
-    mockClaudeExecute = jest.fn().mockReturnValue(
+    mockLlmExecute = jest.fn().mockReturnValue(
       new Observable((subscriber) => {
         subscriber.next({
           data: { type: "text", text: "mock response" },
@@ -25,8 +25,8 @@ describe("PromptController (e2e)", () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
-      .overrideProvider(ClaudeService)
-      .useValue({ execute: mockClaudeExecute })
+      .overrideProvider(LlmPort)
+      .useValue({ execute: mockLlmExecute })
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -38,7 +38,7 @@ describe("PromptController (e2e)", () => {
   });
 
   beforeEach(() => {
-    mockClaudeExecute.mockClear();
+    mockLlmExecute.mockClear();
   });
 
   describe("POST /sessions/:id/prompt", () => {
@@ -70,7 +70,7 @@ describe("PromptController (e2e)", () => {
         .send({ prompt: "hello" })
         .expect(201);
 
-      expect(mockClaudeExecute).toHaveBeenCalledWith(
+      expect(mockLlmExecute).toHaveBeenCalledWith(
         expect.objectContaining({ prompt: "hello" })
       );
     });
@@ -90,7 +90,7 @@ describe("PromptController (e2e)", () => {
         .send({ prompt: "hello" })
         .expect(201);
 
-      expect(mockClaudeExecute).toHaveBeenCalledWith(
+      expect(mockLlmExecute).toHaveBeenCalledWith(
         expect.objectContaining({
           prompt: "hello",
           claudeSessionId: null,

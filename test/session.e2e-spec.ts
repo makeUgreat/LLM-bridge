@@ -30,7 +30,6 @@ describe("SessionController (e2e)", () => {
   });
 
   it("GET /sessions → 빈 배열 반환 (초기 상태)", async () => {
-    // 새 앱 인스턴스로 테스트
     const moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
