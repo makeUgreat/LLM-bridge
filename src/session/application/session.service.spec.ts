@@ -12,6 +12,7 @@ describe('SessionService', () => {
     findById: jest.fn(),
     findAll: jest.fn(),
     remove: jest.fn(),
+    removeExpired: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -123,6 +124,15 @@ describe('SessionService', () => {
       jest.mocked(repository.remove).mockReturnValue(false);
 
       expect(service.remove('nonexistent')).toBe(false);
+    });
+  });
+
+  describe('removeExpired', () => {
+    it('repository에 위임하고 삭제 건수를 반환한다', () => {
+      jest.mocked(repository.removeExpired).mockReturnValue(3);
+
+      expect(service.removeExpired(30000)).toBe(3);
+      expect(repository.removeExpired).toHaveBeenCalledWith(30000);
     });
   });
 });

@@ -39,4 +39,8 @@ export class SessionService {
   remove(id: string): boolean {
     return this.repository.remove(id);
   }
+
+  removeExpired(ttlMs: number): number {
+    return this.repository.removeExpired(ttlMs);
+  }
 }

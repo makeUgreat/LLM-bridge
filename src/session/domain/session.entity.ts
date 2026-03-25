@@ -45,6 +45,10 @@ export class Session {
     this._lastUsedAt = new Date();
   }
 
+  isExpired(ttlMs: number, now: Date = new Date()): boolean {
+    return now.getTime() - this._lastUsedAt.getTime() > ttlMs;
+  }
+
   toJSON() {
     return {
       id: this._id,

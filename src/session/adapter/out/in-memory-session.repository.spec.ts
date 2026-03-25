@@ -56,4 +56,30 @@ describe('InMemorySessionRepository', () => {
       expect(repository.remove('nonexistent')).toBe(false);
     });
   });
+
+  describe('removeExpired', () => {
+    it('만료된 세션만 삭제하고 삭제 건수를 반환한다', () => {
+      const expired = new Session('id-1', null, new Date(0), new Date(0));
+      const active = Session.create('id-2');
+
+      repository.save(expired);
+      repository.save(active);
+
+      const removed = repository.removeExpired(30000);
+
+      expect(removed).toBe(1);
+      expect(repository.findById('id-1')).toBeUndefined();
+      expect(repository.findById('id-2')).toBeDefined();
+    });
+
+    it('만료된 세션이 없으면 0을 반환한다', () => {
+      repository.save(Session.create('id-1'));
+
+      expect(repository.removeExpired(30000)).toBe(0);
+    });
+
+    it('세션이 없으면 0을 반환한다', () => {
+      expect(repository.removeExpired(30000)).toBe(0);
+    });
+  });
 });

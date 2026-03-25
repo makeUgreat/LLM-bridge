@@ -22,4 +22,16 @@ export class InMemorySessionRepository extends SessionRepositoryPort {
   remove(id: string): boolean {
     return this.sessions.delete(id);
   }
+
+  removeExpired(ttlMs: number): number {
+    const now = new Date();
+    let removed = 0;
+    for (const [id, session] of this.sessions) {
+      if (session.isExpired(ttlMs, now)) {
+        this.sessions.delete(id);
+        removed++;
+      }
+    }
+    return removed;
+  }
 }

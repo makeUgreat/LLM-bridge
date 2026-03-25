@@ -74,4 +74,38 @@ describe('Session', () => {
       );
     });
   });
+
+  describe('isExpired', () => {
+    it('TTL 내의 세션은 만료되지 않는다', () => {
+      const session = Session.create('test-id');
+      const now = new Date(session.lastUsedAt.getTime() + 1000);
+
+      expect(session.isExpired(30000, now)).toBe(false);
+    });
+
+    it('TTL 초과 세션은 만료된다', () => {
+      const session = Session.create('test-id');
+      const now = new Date(session.lastUsedAt.getTime() + 30001);
+
+      expect(session.isExpired(30000, now)).toBe(true);
+    });
+
+    it('lastUsedAt 기준으로 판단한다', () => {
+      const session = Session.create('test-id');
+      const afterCreate = new Date(session.createdAt.getTime() + 60000);
+
+      // touch로 lastUsedAt 갱신
+      session.touch();
+      const now = new Date(session.lastUsedAt.getTime() + 1000);
+
+      expect(session.isExpired(30000, now)).toBe(false);
+    });
+
+    it('TTL 경계값에서는 만료되지 않는다', () => {
+      const session = Session.create('test-id');
+      const now = new Date(session.lastUsedAt.getTime() + 30000);
+
+      expect(session.isExpired(30000, now)).toBe(false);
+    });
+  });
 });

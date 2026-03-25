@@ -5,4 +5,5 @@ export abstract class SessionRepositoryPort {
   abstract findById(id: string): Session | undefined;
   abstract findAll(): Session[];
   abstract remove(id: string): boolean;
+  abstract removeExpired(ttlMs: number): number;
 }
