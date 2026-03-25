@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { firstValueFrom, toArray } from 'rxjs';
+import { firstValueFrom, toArray, take } from 'rxjs';
 import { spawn } from 'child_process';
 import { ClaudeCliAdapter } from './claude-cli.adapter';
 import { ClaudeOptions } from '../../domain/claude-options.vo';
@@ -7,6 +7,9 @@ import { ClaudeOptions } from '../../domain/claude-options.vo';
 jest.mock('child_process', () => ({
   spawn: jest.fn(),
 }));
+
+const TIMEOUT_MS = 300000;
+const KILL_GRACE_MS = 5000;
 
 const mockSpawn = jest.mocked(spawn);
 
@@ -67,8 +70,8 @@ describe('ClaudeCliAdapter', () => {
 
       expect(mockSpawn).toHaveBeenCalledWith(
         'claude',
-        ['-p', '--output-format', 'stream-json', 'hello'],
-        expect.objectContaining({ stdio: ['pipe', 'pipe', 'pipe'] }),
+        ['-p', '--output-format', 'stream-json', '--verbose', 'hello'],
+        expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] }),
       );
     });
 
@@ -325,6 +328,78 @@ describe('ClaudeCliAdapter', () => {
       sub.unsubscribe();
 
       expect(fakeProc.kill).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('타임아웃', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('타임아웃 시 SIGTERM을 전송하고 error+done을 방출한다', () => {
+      const events: MessageEvent[] = [];
+      adapter.execute(defaultOptions()).subscribe({
+        next: (e) => events.push(e),
+        complete: () => {},
+      });
+
+      jest.advanceTimersByTime(TIMEOUT_MS);
+
+      expect(fakeProc.kill).toHaveBeenCalledWith('SIGTERM');
+      expect(events).toHaveLength(2);
+      expect(events[0].data).toEqual({
+        type: 'error',
+        error: 'Process timed out',
+      });
+      expect(events[1].data).toEqual({ type: 'done', exitCode: -1 });
+    });
+
+    it('SIGTERM 후 grace period 내 미종료 시 SIGKILL을 전송한다', () => {
+      // kill이 호출되어도 killed를 false로 유지 (프로세스가 안 죽는 상황)
+      fakeProc.kill = jest.fn();
+
+      adapter.execute(defaultOptions()).subscribe({
+        next: () => {},
+        complete: () => {},
+      });
+
+      jest.advanceTimersByTime(TIMEOUT_MS);
+      expect(fakeProc.kill).toHaveBeenCalledWith('SIGTERM');
+
+      jest.advanceTimersByTime(KILL_GRACE_MS);
+      expect(fakeProc.kill).toHaveBeenCalledWith('SIGKILL');
+    });
+
+    it('정상 종료 시 타임아웃이 발동하지 않는다', () => {
+      const events: MessageEvent[] = [];
+      adapter.execute(defaultOptions()).subscribe({
+        next: (e) => events.push(e),
+        complete: () => {},
+      });
+
+      fakeProc.emit('close', 0);
+      jest.advanceTimersByTime(TIMEOUT_MS);
+
+      // close에서 done 1개만 방출, 타임아웃 error는 없음
+      expect(events).toHaveLength(1);
+      expect(events[0].data).toEqual({ type: 'done', exitCode: 0 });
+    });
+
+    it('구독 해제 시 타임아웃 타이머가 클리어된다', () => {
+      const sub = adapter.execute(defaultOptions()).subscribe({
+        next: () => {},
+      });
+
+      sub.unsubscribe();
+      jest.advanceTimersByTime(TIMEOUT_MS);
+
+      // SIGTERM은 unsubscribe에서 1번만 호출, 타임아웃에서 추가 호출 없음
+      expect(fakeProc.kill).toHaveBeenCalledTimes(1);
+      expect(fakeProc.kill).toHaveBeenCalledWith('SIGTERM');
     });
   });
 });
