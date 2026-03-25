@@ -9,17 +9,25 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiProduces } from '@nestjs/swagger';
 import { Observable } from 'rxjs';
 import { TimeoutError } from 'rxjs';
 import { PromptService } from '../../application/prompt.service';
 import { PromptDto } from './prompt.dto';
 import { SyncPromptResponseDto } from './sync-prompt-response.dto';
 
+@ApiTags('prompt')
 @Controller()
 export class PromptController {
   constructor(private readonly promptService: PromptService) {}
 
   @Post('sessions/:id/prompt/sync')
+  @ApiOperation({ summary: '세션 컨텍스트에서 동기 프롬프트 실행' })
+  @ApiParam({ name: 'id', description: '세션 ID' })
+  @ApiResponse({ status: 200, description: '프롬프트 실행 결과', type: SyncPromptResponseDto })
+  @ApiResponse({ status: 400, description: 'prompt 필수' })
+  @ApiResponse({ status: 404, description: '세션을 찾을 수 없음' })
+  @ApiResponse({ status: 504, description: 'LLM 실행 타임아웃' })
   async executeSyncWithSession(
     @Param('id') id: string,
     @Body() body: PromptDto,
@@ -48,6 +56,10 @@ export class PromptController {
   }
 
   @Post('prompt/sync')
+  @ApiOperation({ summary: '원샷 동기 프롬프트 실행 (세션 없음)' })
+  @ApiResponse({ status: 200, description: '프롬프트 실행 결과', type: SyncPromptResponseDto })
+  @ApiResponse({ status: 400, description: 'prompt 필수' })
+  @ApiResponse({ status: 504, description: 'LLM 실행 타임아웃' })
   async executeSyncOneShot(
     @Body() body: PromptDto,
   ): Promise<SyncPromptResponseDto> {
@@ -82,6 +94,12 @@ export class PromptController {
 
   @Post('sessions/:id/prompt')
   @Sse()
+  @ApiOperation({ summary: '세션 컨텍스트에서 스트리밍 프롬프트 실행 (SSE)' })
+  @ApiParam({ name: 'id', description: '세션 ID' })
+  @ApiProduces('text/event-stream')
+  @ApiResponse({ status: 200, description: 'SSE 스트림', content: { 'text/event-stream': {} } })
+  @ApiResponse({ status: 400, description: 'prompt 필수' })
+  @ApiResponse({ status: 404, description: '세션을 찾을 수 없음' })
   executeWithSession(
     @Param('id') id: string,
     @Body() body: PromptDto,
@@ -109,6 +127,10 @@ export class PromptController {
 
   @Post('prompt')
   @Sse()
+  @ApiOperation({ summary: '원샷 스트리밍 프롬프트 실행 (SSE, 세션 없음)' })
+  @ApiProduces('text/event-stream')
+  @ApiResponse({ status: 200, description: 'SSE 스트림', content: { 'text/event-stream': {} } })
+  @ApiResponse({ status: 400, description: 'prompt 필수' })
   executeOneShot(@Body() body: PromptDto): Observable<MessageEvent> {
     if (!body.prompt) {
       throw new BadRequestException('prompt is required');
