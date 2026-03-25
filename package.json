@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "dist/main.js",
+  "bin": {
+    "llm-bridge": "./bin/llm-bridge.js"
+  },
   "scripts": {
     "dev": "ts-node src/main.ts",
     "build": "tsc",
