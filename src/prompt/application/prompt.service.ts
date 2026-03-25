@@ -6,6 +6,11 @@ import { SessionReaderPort } from '../domain/session-reader.port';
 import { SessionManagerPort } from '../domain/session-manager.port';
 import { ClaudeOptions } from '../domain/claude-options.vo';
 
+const HEARTBEAT_INTERVAL_MS = parseInt(
+  process.env.HEARTBEAT_INTERVAL_MS || '15000',
+  10,
+);
+
 export interface ExecuteWithSessionOptions {
   sessionId: string;
   prompt: string;
@@ -52,7 +57,7 @@ export class PromptService {
       systemPrompt: options.systemPrompt,
     });
 
-    return this.llmPort.execute(claudeOptions).pipe(
+    const source$ = this.llmPort.execute(claudeOptions).pipe(
       tap((event: MessageEvent) => {
         if (event.data?.session_id) {
           this.sessionManagerPort.updateClaudeSessionId(
@@ -62,6 +67,8 @@ export class PromptService {
         }
       }),
     );
+
+    return this.withHeartbeat(source$);
   }
 
   executeOneShot(options: ExecuteOneShotOptions): Observable<MessageEvent> {
@@ -78,7 +85,7 @@ export class PromptService {
       systemPrompt: options.systemPrompt,
     });
 
-    return this.llmPort.execute(claudeOptions).pipe(
+    const source$ = this.llmPort.execute(claudeOptions).pipe(
       tap((event: MessageEvent) => {
         if (event.data?.session_id) {
           this.sessionManagerPort.updateClaudeSessionId(
@@ -89,5 +96,34 @@ export class PromptService {
       }),
       finalize(() => this.sessionManagerPort.remove(session.id)),
     );
+
+    return this.withHeartbeat(source$);
+  }
+
+  private withHeartbeat(
+    source$: Observable<MessageEvent>,
+  ): Observable<MessageEvent> {
+    return new Observable((subscriber) => {
+      const heartbeatTimer = setInterval(() => {
+        subscriber.next({ data: { type: 'heartbeat' } } as MessageEvent);
+      }, HEARTBEAT_INTERVAL_MS);
+
+      const subscription = source$.subscribe({
+        next: (value) => subscriber.next(value),
+        error: (err) => {
+          clearInterval(heartbeatTimer);
+          subscriber.error(err);
+        },
+        complete: () => {
+          clearInterval(heartbeatTimer);
+          subscriber.complete();
+        },
+      });
+
+      return () => {
+        clearInterval(heartbeatTimer);
+        subscription.unsubscribe();
+      };
+    });
   }
 }

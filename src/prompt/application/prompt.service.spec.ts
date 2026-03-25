@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { Observable, of, firstValueFrom, toArray } from 'rxjs';
+import { Observable, Subject, of, firstValueFrom, toArray } from 'rxjs';
 import { PromptService } from './prompt.service';
 import { LlmPort } from '../domain/llm.port';
 import { SessionReaderPort } from '../domain/session-reader.port';
@@ -178,6 +178,65 @@ describe('PromptService', () => {
         'temp-1',
         'new-cs-id',
       );
+    });
+  });
+
+  describe('heartbeat', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('스트림 중 heartbeat 이벤트가 주기적으로 방출된다', async () => {
+      const session = Session.create('sess-1');
+      jest.mocked(sessionReaderPort.findById).mockReturnValue(session);
+
+      const source$ = new Subject<MessageEvent>();
+      jest.mocked(llmPort.execute).mockReturnValue(source$.asObservable());
+
+      const events: MessageEvent[] = [];
+      const result$ = service.executeWithSession({
+        sessionId: 'sess-1',
+        prompt: 'hello',
+      });
+      result$.subscribe((e) => events.push(e));
+
+      jest.advanceTimersByTime(15000);
+      expect(events).toHaveLength(1);
+      expect(events[0].data).toEqual({ type: 'heartbeat' });
+
+      jest.advanceTimersByTime(15000);
+      expect(events).toHaveLength(2);
+
+      source$.next({ data: { type: 'done', exitCode: 0 } } as MessageEvent);
+      source$.complete();
+
+      expect(events).toHaveLength(3);
+      expect(events[2].data).toEqual({ type: 'done', exitCode: 0 });
+    });
+
+    it('소스 완료 후 heartbeat가 중지된다', async () => {
+      const session = Session.create('sess-1');
+      jest.mocked(sessionReaderPort.findById).mockReturnValue(session);
+
+      const source$ = new Subject<MessageEvent>();
+      jest.mocked(llmPort.execute).mockReturnValue(source$.asObservable());
+
+      const events: MessageEvent[] = [];
+      const result$ = service.executeWithSession({
+        sessionId: 'sess-1',
+        prompt: 'hello',
+      });
+      result$.subscribe((e) => events.push(e));
+
+      source$.complete();
+      const countAfterComplete = events.length;
+
+      jest.advanceTimersByTime(30000);
+      expect(events).toHaveLength(countAfterComplete);
     });
   });
 });
