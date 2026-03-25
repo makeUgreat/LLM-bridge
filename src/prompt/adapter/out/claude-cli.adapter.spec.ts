@@ -3,6 +3,7 @@ import { firstValueFrom, toArray, take } from 'rxjs';
 import { spawn } from 'child_process';
 import { ClaudeCliAdapter } from './claude-cli.adapter';
 import { ClaudeOptions } from '../../domain/claude-options.vo';
+import { LlmEvent } from '../../domain/prompt-event.type';
 
 jest.mock('child_process', () => ({
   spawn: jest.fn(),
@@ -341,7 +342,7 @@ describe('ClaudeCliAdapter', () => {
     });
 
     it('타임아웃 시 SIGTERM을 전송하고 error+done을 방출한다', () => {
-      const events: MessageEvent[] = [];
+      const events: LlmEvent[] = [];
       adapter.execute(defaultOptions()).subscribe({
         next: (e) => events.push(e),
         complete: () => {},
@@ -375,7 +376,7 @@ describe('ClaudeCliAdapter', () => {
     });
 
     it('정상 종료 시 타임아웃이 발동하지 않는다', () => {
-      const events: MessageEvent[] = [];
+      const events: LlmEvent[] = [];
       adapter.execute(defaultOptions()).subscribe({
         next: (e) => events.push(e),
         complete: () => {},

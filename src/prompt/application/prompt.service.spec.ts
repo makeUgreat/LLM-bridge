@@ -5,6 +5,8 @@ import { LlmPort } from '../domain/llm.port';
 import { SessionReaderPort } from '../domain/session-reader.port';
 import { SessionManagerPort } from '../domain/session-manager.port';
 import { Session } from '../../session/domain/session.entity';
+import { PromptResult } from '../domain/prompt-result.vo';
+import { LlmEvent } from '../domain/prompt-event.type';
 
 describe('PromptService', () => {
   let service: PromptService;
@@ -14,7 +16,7 @@ describe('PromptService', () => {
 
   const mockObservable = of({
     data: { type: 'done', exitCode: 0 },
-  } as MessageEvent);
+  } as LlmEvent);
 
   const mockLlmPort: LlmPort = {
     execute: jest.fn().mockReturnValue(mockObservable),
@@ -115,7 +117,7 @@ describe('PromptService', () => {
 
       const sessionIdEvent = of({
         data: { session_id: 'new-cs-id' },
-      } as MessageEvent);
+      } as LlmEvent);
       jest.mocked(llmPort.execute).mockReturnValue(sessionIdEvent);
 
       const result = service.executeWithSession({
@@ -167,12 +169,145 @@ describe('PromptService', () => {
 
       const sessionIdEvent = of({
         data: { session_id: 'new-cs-id' },
-      } as MessageEvent);
+      } as LlmEvent);
       jest.mocked(llmPort.execute).mockReturnValue(sessionIdEvent);
 
       const result = service.executeOneShot({ prompt: 'hello' });
 
       await firstValueFrom(result.pipe(toArray()));
+
+      expect(sessionManagerPort.updateClaudeSessionId).toHaveBeenCalledWith(
+        'temp-1',
+        'new-cs-id',
+      );
+    });
+  });
+
+  describe('executeSyncWithSession', () => {
+    it('세션을 조회하고 이벤트를 수집하여 PromptResult를 반환한다', async () => {
+      const session = Session.create('sess-1');
+      session.attachClaudeSession('claude-1');
+      jest.mocked(sessionReaderPort.findById).mockReturnValue(session);
+
+      const events$ = of(
+        { data: { type: 'text', text: 'hello ' } } as LlmEvent,
+        { data: { type: 'text', text: 'world' } } as LlmEvent,
+        { data: { type: 'done', exitCode: 0 } } as LlmEvent,
+      );
+      jest.mocked(llmPort.execute).mockReturnValue(events$);
+
+      const result = await service.executeSyncWithSession({
+        sessionId: 'sess-1',
+        prompt: 'hello',
+      });
+
+      expect(result).toBeInstanceOf(PromptResult);
+      expect(result!.text).toBe('hello world');
+      expect(result!.error).toBeNull();
+      expect(result!.exitCode).toBe(0);
+      expect(sessionManagerPort.touch).toHaveBeenCalledWith('sess-1');
+    });
+
+    it('세션이 없으면 undefined를 반환한다', async () => {
+      jest.mocked(sessionReaderPort.findById).mockReturnValue(undefined);
+
+      const result = await service.executeSyncWithSession({
+        sessionId: 'nonexistent',
+        prompt: 'hello',
+      });
+
+      expect(result).toBeUndefined();
+      expect(llmPort.execute).not.toHaveBeenCalled();
+    });
+
+    it('assistant 타입 이벤트에서 텍스트를 추출한다', async () => {
+      const session = Session.create('sess-1');
+      jest.mocked(sessionReaderPort.findById).mockReturnValue(session);
+
+      const events$ = of(
+        {
+          data: {
+            type: 'assistant',
+            message: {
+              content: [
+                { type: 'text', text: 'hello from assistant' },
+              ],
+            },
+          },
+        } as LlmEvent,
+        { data: { type: 'done', exitCode: 0 } } as LlmEvent,
+      );
+      jest.mocked(llmPort.execute).mockReturnValue(events$);
+
+      const result = await service.executeSyncWithSession({
+        sessionId: 'sess-1',
+        prompt: 'hello',
+      });
+
+      expect(result!.text).toBe('hello from assistant');
+    });
+
+    it('에러 이벤트를 캡처한다', async () => {
+      const session = Session.create('sess-1');
+      jest.mocked(sessionReaderPort.findById).mockReturnValue(session);
+
+      const events$ = of(
+        { data: { type: 'text', text: 'partial' } } as LlmEvent,
+        { data: { type: 'error', error: 'something failed' } } as LlmEvent,
+        { data: { type: 'done', exitCode: 1 } } as LlmEvent,
+      );
+      jest.mocked(llmPort.execute).mockReturnValue(events$);
+
+      const result = await service.executeSyncWithSession({
+        sessionId: 'sess-1',
+        prompt: 'hello',
+      });
+
+      expect(result!.text).toBe('partial');
+      expect(result!.error).toBe('something failed');
+      expect(result!.exitCode).toBe(1);
+    });
+  });
+
+  describe('executeSyncOneShot', () => {
+    it('임시 세션을 생성하고 이벤트를 수집하여 PromptResult를 반환한다', async () => {
+      const session = Session.create('temp-1');
+      jest.mocked(sessionManagerPort.create).mockReturnValue(session);
+
+      const events$ = of(
+        { data: { type: 'text', text: 'response' } } as LlmEvent,
+        { data: { type: 'done', exitCode: 0 } } as LlmEvent,
+      );
+      jest.mocked(llmPort.execute).mockReturnValue(events$);
+
+      const result = await service.executeSyncOneShot({ prompt: 'hello' });
+
+      expect(result).toBeInstanceOf(PromptResult);
+      expect(result.text).toBe('response');
+      expect(result.exitCode).toBe(0);
+      expect(sessionManagerPort.create).toHaveBeenCalled();
+    });
+
+    it('완료 후 임시 세션을 삭제한다', async () => {
+      const session = Session.create('temp-1');
+      jest.mocked(sessionManagerPort.create).mockReturnValue(session);
+
+      await service.executeSyncOneShot({ prompt: 'hello' });
+
+      expect(sessionManagerPort.remove).toHaveBeenCalledWith('temp-1');
+    });
+
+    it('session_id 이벤트가 오면 updateClaudeSessionId를 호출한다', async () => {
+      const session = Session.create('temp-1');
+      jest.mocked(sessionManagerPort.create).mockReturnValue(session);
+
+      const events$ = of(
+        { data: { session_id: 'new-cs-id' } } as LlmEvent,
+        { data: { type: 'done', exitCode: 0 } } as LlmEvent,
+      );
+      jest.mocked(llmPort.execute).mockReturnValue(events$);
+
+      await service.executeSyncOneShot({ prompt: 'hello' });
 
       expect(sessionManagerPort.updateClaudeSessionId).toHaveBeenCalledWith(
         'temp-1',
@@ -194,10 +329,10 @@ describe('PromptService', () => {
       const session = Session.create('sess-1');
       jest.mocked(sessionReaderPort.findById).mockReturnValue(session);
 
-      const source$ = new Subject<MessageEvent>();
+      const source$ = new Subject<LlmEvent>();
       jest.mocked(llmPort.execute).mockReturnValue(source$.asObservable());
 
-      const events: MessageEvent[] = [];
+      const events: LlmEvent[] = [];
       const result$ = service.executeWithSession({
         sessionId: 'sess-1',
         prompt: 'hello',
@@ -211,7 +346,7 @@ describe('PromptService', () => {
       jest.advanceTimersByTime(15000);
       expect(events).toHaveLength(2);
 
-      source$.next({ data: { type: 'done', exitCode: 0 } } as MessageEvent);
+      source$.next({ data: { type: 'done', exitCode: 0 } });
       source$.complete();
 
       expect(events).toHaveLength(3);
@@ -222,10 +357,10 @@ describe('PromptService', () => {
       const session = Session.create('sess-1');
       jest.mocked(sessionReaderPort.findById).mockReturnValue(session);
 
-      const source$ = new Subject<MessageEvent>();
+      const source$ = new Subject<LlmEvent>();
       jest.mocked(llmPort.execute).mockReturnValue(source$.asObservable());
 
-      const events: MessageEvent[] = [];
+      const events: LlmEvent[] = [];
       const result$ = service.executeWithSession({
         sessionId: 'sess-1',
         prompt: 'hello',

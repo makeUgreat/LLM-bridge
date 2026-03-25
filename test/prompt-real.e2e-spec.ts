@@ -62,4 +62,19 @@ describe('Prompt 실제 Claude CLI 호출 (e2e)', () => {
     );
     expect(hasContent).toBe(true);
   }, 60_000);
+
+  it('POST /prompt/sync → 실제 Claude 응답을 JSON으로 수신한다', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/prompt/sync')
+      .send({
+        prompt: 'say hello',
+        permissionMode: 'plan',
+      })
+      .expect(201);
+
+    expect(res.body.text).toBeDefined();
+    expect(res.body.text.length).toBeGreaterThan(0);
+    expect(res.body.error).toBeNull();
+    expect(res.body.exitCode).toBe(0);
+  }, 60_000);
 });

@@ -3,6 +3,7 @@ import { spawn } from 'child_process';
 import { Observable } from 'rxjs';
 import { LlmPort } from '../../domain/llm.port';
 import { ClaudeOptions } from '../../domain/claude-options.vo';
+import { LlmEvent, PromptEvent } from '../../domain/prompt-event.type';
 
 @Injectable()
 export class ClaudeCliAdapter extends LlmPort {
@@ -14,7 +15,7 @@ export class ClaudeCliAdapter extends LlmPort {
     this.timeoutMs = parseInt(process.env.CLAUDE_TIMEOUT_MS || '300000', 10);
   }
 
-  execute(options: ClaudeOptions): Observable<MessageEvent> {
+  execute(options: ClaudeOptions): Observable<LlmEvent> {
     return new Observable((subscriber) => {
       const args = ['-p', '--output-format', 'stream-json', '--verbose'];
 
@@ -46,6 +47,10 @@ export class ClaudeCliAdapter extends LlmPort {
       let completed = false;
       let killTimer: ReturnType<typeof setTimeout> | undefined;
 
+      const emit = (data: PromptEvent): void => {
+        subscriber.next({ data });
+      };
+
       const timeoutTimer = setTimeout(() => {
         if (completed) return;
         if (!child.killed) {
@@ -57,12 +62,8 @@ export class ClaudeCliAdapter extends LlmPort {
           }, ClaudeCliAdapter.KILL_GRACE_MS);
         }
         completed = true;
-        subscriber.next({
-          data: { type: 'error', error: 'Process timed out' },
-        } as MessageEvent);
-        subscriber.next({
-          data: { type: 'done', exitCode: -1 },
-        } as MessageEvent);
+        emit({ type: 'error', error: 'Process timed out' });
+        emit({ type: 'done', exitCode: -1 });
         subscriber.complete();
       }, this.timeoutMs);
 
@@ -76,14 +77,10 @@ export class ClaudeCliAdapter extends LlmPort {
           if (!trimmed) continue;
 
           try {
-            const parsed = JSON.parse(trimmed);
-            subscriber.next({
-              data: parsed,
-            } as MessageEvent);
+            const parsed = JSON.parse(trimmed) as PromptEvent;
+            emit(parsed);
           } catch {
-            subscriber.next({
-              data: { type: 'text', text: trimmed },
-            } as MessageEvent);
+            emit({ type: 'text', text: trimmed });
           }
         }
       });
@@ -91,9 +88,7 @@ export class ClaudeCliAdapter extends LlmPort {
       child.stderr?.on('data', (data: Buffer) => {
         const text = data.toString().trim();
         if (text) {
-          subscriber.next({
-            data: { type: 'error', error: text },
-          } as MessageEvent);
+          emit({ type: 'error', error: text });
         }
       });
 
@@ -106,18 +101,14 @@ export class ClaudeCliAdapter extends LlmPort {
 
         if (buffer.trim()) {
           try {
-            const parsed = JSON.parse(buffer.trim());
-            subscriber.next({ data: parsed } as MessageEvent);
+            const parsed = JSON.parse(buffer.trim()) as PromptEvent;
+            emit(parsed);
           } catch {
-            subscriber.next({
-              data: { type: 'text', text: buffer.trim() },
-            } as MessageEvent);
+            emit({ type: 'text', text: buffer.trim() });
           }
         }
 
-        subscriber.next({
-          data: { type: 'done', exitCode: code },
-        } as MessageEvent);
+        emit({ type: 'done', exitCode: code });
         subscriber.complete();
       });
 

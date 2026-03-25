@@ -4,6 +4,7 @@ import request from "supertest";
 import { Observable } from "rxjs";
 import { AppModule } from "../src/app.module";
 import { LlmPort } from "../src/prompt/domain/llm.port";
+import { LlmEvent } from "../src/prompt/domain/prompt-event.type";
 
 describe("PromptController (e2e)", () => {
   let app: INestApplication;
@@ -11,13 +12,13 @@ describe("PromptController (e2e)", () => {
 
   beforeAll(async () => {
     mockLlmExecute = jest.fn().mockReturnValue(
-      new Observable((subscriber) => {
+      new Observable<LlmEvent>((subscriber) => {
         subscriber.next({
           data: { type: "text", text: "mock response" },
-        } as MessageEvent);
+        });
         subscriber.next({
           data: { type: "done", exitCode: 0 },
-        } as MessageEvent);
+        });
         subscriber.complete();
       })
     );
@@ -90,6 +91,75 @@ describe("PromptController (e2e)", () => {
         .send({ prompt: "hello" })
         .expect(201);
 
+      expect(mockLlmExecute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prompt: "hello",
+          claudeSessionId: null,
+        })
+      );
+    });
+  });
+
+  describe("POST /sessions/:id/prompt/sync", () => {
+    it("존재하지 않는 세션이면 404를 반환한다", () => {
+      return request(app.getHttpServer())
+        .post("/sessions/nonexistent/prompt/sync")
+        .send({ prompt: "hello" })
+        .expect(404);
+    });
+
+    it("prompt가 없으면 400을 반환한다", async () => {
+      const createRes = await request(app.getHttpServer())
+        .post("/sessions")
+        .expect(201);
+
+      return request(app.getHttpServer())
+        .post(`/sessions/${createRes.body.sessionId}/prompt/sync`)
+        .send({ prompt: "" })
+        .expect(400);
+    });
+
+    it("정상 요청 시 JSON 응답을 반환한다", async () => {
+      const createRes = await request(app.getHttpServer())
+        .post("/sessions")
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .post(`/sessions/${createRes.body.sessionId}/prompt/sync`)
+        .send({ prompt: "hello" })
+        .expect(201);
+
+      expect(res.body).toEqual(
+        expect.objectContaining({
+          text: "mock response",
+          error: null,
+          exitCode: 0,
+        })
+      );
+    });
+  });
+
+  describe("POST /prompt/sync", () => {
+    it("prompt가 없으면 400을 반환한다", () => {
+      return request(app.getHttpServer())
+        .post("/prompt/sync")
+        .send({ prompt: "" })
+        .expect(400);
+    });
+
+    it("정상 요청 시 JSON 응답을 반환한다", async () => {
+      const res = await request(app.getHttpServer())
+        .post("/prompt/sync")
+        .send({ prompt: "hello" })
+        .expect(201);
+
+      expect(res.body).toEqual(
+        expect.objectContaining({
+          text: "mock response",
+          error: null,
+          exitCode: 0,
+        })
+      );
       expect(mockLlmExecute).toHaveBeenCalledWith(
         expect.objectContaining({
           prompt: "hello",
