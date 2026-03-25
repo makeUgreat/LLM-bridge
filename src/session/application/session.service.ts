@@ -1,5 +1,5 @@
+import { randomUUID } from 'crypto';
 import { Injectable } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
 import { Session } from '../domain/session.entity';
 import { SessionRepositoryPort } from '../domain/session-repository.port';
 
@@ -8,7 +8,7 @@ export class SessionService {
   constructor(private readonly repository: SessionRepositoryPort) {}
 
   create(): Session {
-    const session = Session.create(uuidv4());
+    const session = Session.create(randomUUID());
     return this.repository.save(session);
   }
 
