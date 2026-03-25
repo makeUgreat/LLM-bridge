@@ -1,44 +1,66 @@
 # 헥사고날 도메인 규칙
 
-## 바운디드 컨텍스트 정의
-
-### Session 컨텍스트
-
-| 구분 | 내용 |
-|------|------|
-| **엔티티** | `Session` — id, claudeSessionId, createdAt, lastUsedAt |
-| **포트** | `SessionRepositoryPort` — create, findOne, remove |
-| **서비스** | `SessionService` — 세션 생명주기 관리 |
-
-### Prompt 컨텍스트
-
-| 구분 | 내용 |
-|------|------|
-| **VO** | `ClaudeOptions` — model, maxTokens 등 실행 옵션 |
-| **타입** | `PromptEvent` — SSE 스트림 이벤트 타입 |
-| **포트** | `LlmPort` — LLM 실행 추상화, `SessionReaderPort` — 세션 조회 추상화 |
-| **서비스** | `PromptService` — 프롬프트 실행 오케스트레이션 |
-
 ## 도메인 엔티티 규칙
 
 - plain class로 작성, NestJS 데코레이터 사용 금지
-- 비즈니스 로직은 엔티티 메서드로 캡슐화
+- 변경 가능 필드는 `private`으로 선언하고 getter 제공 (Aggregate Root 패턴)
+- 불변 필드는 `private readonly`로 선언
+- 비즈니스 로직은 엔티티 메서드로 캡슐화 — 외부에서 필드 직접 수정 금지
+- 메서드에서 입력값 검증 수행 (빈 문자열, null 등)
 - 생성은 정적 팩토리 메서드 또는 생성자 사용
 - 외부 라이브러리 의존 금지
+- JSON 직렬화가 필요하면 `toJSON()` 메서드 제공
 
 ```typescript
-// 예시: session.entity.ts
+// 예시
 export class Session {
+  private _claudeSessionId: string | null;
+  private _lastUsedAt: Date;
+
   constructor(
-    public readonly id: string,
-    public claudeSessionId: string | null,
-    public readonly createdAt: Date,
-    public lastUsedAt: Date,
-  ) {}
+    private readonly _id: string,
+    claudeSessionId: string | null,
+    private readonly _createdAt: Date,
+    lastUsedAt: Date,
+  ) { ... }
+
+  static create(id: string): Session { ... }
+
+  get id(): string { return this._id; }
+  get claudeSessionId(): string | null { return this._claudeSessionId; }
 
   attachClaudeSession(claudeSessionId: string): void {
-    this.claudeSessionId = claudeSessionId;
-    this.lastUsedAt = new Date();
+    if (!claudeSessionId || claudeSessionId.trim().length === 0) {
+      throw new Error('Claude session ID must not be empty');
+    }
+    this._claudeSessionId = claudeSessionId;
+    this._lastUsedAt = new Date();
+  }
+}
+```
+
+## Value Object 규칙
+
+- **불변 class**로 정의 (interface가 아닌 class)
+- `private constructor` + 정적 팩토리 메서드 `create()` 패턴 사용
+- 모든 필드 `readonly`
+- 팩토리 메서드에서 입력값 검증 수행 (도메인 규칙 캡슐화)
+- 방어적 복사로 컬렉션 불변성 보장
+
+```typescript
+// 예시
+export class ClaudeOptions {
+  private constructor(
+    public readonly prompt: string,
+    public readonly sessionId: string,
+    ...
+  ) {}
+
+  static create(params: { ... }): ClaudeOptions {
+    if (!params.prompt || params.prompt.trim().length === 0) {
+      throw new Error('Prompt must not be empty');
+    }
+    return new ClaudeOptions(...);
   }
 }
 ```
@@ -48,9 +70,10 @@ export class Session {
 - **abstract class**로 정의 (NestJS DI 토큰 역할)
 - 메서드 시그니처에 도메인 타입만 사용 (DTO, HTTP 객체 금지)
 - 포트는 `domain/` 디렉토리에 위치
+- 크로스 컨텍스트 포트는 용도별로 분리 (읽기 전용 / 생명주기 관리)
 
 ```typescript
-// 예시: session-repository.port.ts
+// 예시
 export abstract class SessionRepositoryPort {
   abstract save(session: Session): Session;
   abstract findById(id: string): Session | undefined;
@@ -62,50 +85,12 @@ export abstract class SessionRepositoryPort {
 
 - **Driving 어댑터** (adapter/in): 컨트롤러가 application service를 호출
 - **Driven 어댑터** (adapter/out): 포트를 구현하여 외부 시스템과 통신
-
-```typescript
-// 예시: in-memory-session.repository.ts
-@Injectable()
-export class InMemorySessionRepository extends SessionRepositoryPort {
-  private readonly sessions = new Map<string, Session>();
-
-  save(session: Session): Session {
-    this.sessions.set(session.id, session);
-    return session;
-  }
-
-  findById(id: string): Session | undefined {
-    return this.sessions.get(id);
-  }
-
-  remove(id: string): boolean {
-    return this.sessions.delete(id);
-  }
-}
-```
+- 어댑터는 다른 컨텍스트의 도메인을 직접 수정하지 않는다 (관심사 분리)
+- 외부 시스템 호출 어댑터(예: LLM CLI)는 순수하게 I/O 변환만 담당 — 도메인 상태 변경은 Application Service에서 처리
 
 ## 크로스 컨텍스트 통신
 
-Prompt 컨텍스트가 Session 컨텍스트에 의존할 때, 직접 import 대신 `SessionReaderPort`로 격리한다:
-
-```typescript
-// prompt/domain/session-reader.port.ts
-export abstract class SessionReaderPort {
-  abstract findById(id: string): Session | undefined;
-}
-```
-
-- Prompt 모듈은 `SessionReaderPort`만 의존
-- Session 모듈이 `SessionReaderPort` 구현체를 export
-- 양방향 의존은 금지
-
-## 마이그레이션 순서
-
-DDD 전환은 다음 순서로 진행한다:
-
-1. **엔티티 추출** — 기존 서비스에서 도메인 엔티티·VO를 분리하여 `domain/`에 배치
-2. **포트 정의** — 외부 의존성 인터페이스를 abstract class로 정의
-3. **application service** — 유스케이스 로직을 포트 의존으로 재작성
-4. **어댑터 구현** — 기존 구현체를 어댑터로 이동, 포트 구현
-5. **모듈 와이어링** — NestJS 모듈에서 포트-어댑터 바인딩
-6. **테스트 업데이트** — 포트 mock 기반으로 테스트 전환
+- 다른 컨텍스트에 의존할 때 직접 import 대신 포트로 격리
+- 포트는 용도별로 분리: 읽기 전용 포트(`~ReaderPort`)와 쓰기 포트(`~ManagerPort`)
+- 양방향 의존 금지
+- 포트 구현체(어댑터)는 의존 대상 컨텍스트의 Application Service에 위임
