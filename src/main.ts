@@ -23,15 +23,6 @@ async function bootstrap() {
   const port = process.env.PORT || 3737;
   await app.listen(port);
   console.log(`LLM-bridge server running on http://localhost:${port}`);
-
-  const shutdown = async (signal: string) => {
-    console.log(`\n${signal} received, shutting down...`);
-    await app.close();
-    process.exit(0);
-  };
-
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 bootstrap();
