@@ -1,84 +1,140 @@
-# Testing
+---
+title: API Test Convention
+lang: en
+audience: both
+applies_to:
+  - apps/api
+translation: ../ko/test.md
+related:
+  - ./architecture.md
+  - ./index.md
+---
 
-Korean mirror: [ko/test.md](../ko/test.md)
+# API Test Convention
 
-## Runner
+The API app uses Vitest and separates unit tests from integration tests.
+Write integration tests when the test must verify observable behavior across real boundaries, such as framework routing, actual HTTP responses, real adapter modules, or external dependencies.
 
-**Vitest** with SWC transform for TypeScript + decorators. Two projects are configured in `vitest.config.ts`:
+## Scope
 
-| Project | Pattern | Purpose |
-|---------|---------|---------|
-| `unit` | `src/**/*.spec.ts` | Fast, isolated unit tests |
-| `integration` | `test/**/*.e2e-spec.ts` | Full NestJS app tests via HTTP |
+- Use this document when choosing test type, test file placement, test case shape, or API test commands.
 
-## File Placement
+## Test Tooling
 
+- `apps/api` tests MUST use Vitest.
+- Keep Vitest configuration centralized in `apps/api/vitest.config.ts` with named `test.projects`.
+  Add a new test boundary as a named project unless Vitest or another tool requires a separate config file.
+
+## Test Case Design
+
+- Prefer the target name in `describe()`.
+- `it()` test case names should be written primarily in Korean so the behavior intent stays easy for the team to review. Keep routes, code identifiers, and technical terms in their original language when that is clearer.
+- Each `it()` should call one unit of work and verify one specific behavior result.
+- Keep status code, body, and header assertions in the same `it()` when they verify the same execution result.
+- Split `it()` blocks when the execution path or expected result differs, such as success, failure, exception, boundary value, authentication/authorization, or validation.
+- Avoid sharing state between tests. If a shared resource is required, create it in `beforeEach` and clean it up in `afterEach`.
+- Tests must produce the same result under the same conditions.
+
+## Test Doubles
+
+- Test code MAY depend on Vitest helpers such as `vi.fn()`, `vi.spyOn()`, mock return configuration, and mock assertions to build and inspect test doubles.
+- Prefer test-library mocks over bespoke stub classes when a dependency only needs configured return values, call verification, or simple error injection.
+- Use a hand-written fake or stub class when the test double needs meaningful state, shared behavior across methods, or a domain-specific in-memory implementation that would be harder to read as a group of mock functions.
+- Keep test doubles at the cheapest useful scope. Define them inside the spec file by default, and extract shared factories only when multiple tests need the same behavior.
+- In integration tests, use test doubles only for collaborators outside the boundary being verified. Do not mock the adapter, runtime dependency, or framework wiring that the integration test exists to prove.
+- For boundary-specific integration tests under `test/{boundary}/`, the boundary directory identifies the real dependency under verification. Replace unrelated boundary adapters with test doubles unless the test is explicitly about their boundary.
+
+## Test Fixtures And Factories
+
+- Keep a fixture or helper inside the spec file by default. Extract it only when multiple specs need the same setup shape or when repeated setup hides the behavior under test.
+- Use `buildX` for pure fixture factories that only create in-memory values, domain objects, DTOs, rows, or test doubles without external I/O or persistence side effects.
+- Use `createX` only when the helper persists data, starts runtime resources, or otherwise changes external state.
+- Use `setupX` for helpers that assemble a test environment, such as a Nest application, testing module, mock group, or boundary runtime.
+- Context-wide fixtures shared by unit and integration tests SHOULD live under `test/contexts/{context}/fixtures/` once multiple specs need them.
+- Boundary-specific fixtures SHOULD live under the matching boundary directory.
+- Keep helpers shared by multiple integration boundaries under `test/support/`.
+- Do not add a test path alias only to shorten imports. Use relative imports unless the source dependency convention intentionally introduces a test-specific alias.
+
+## Test Layers
+
+### Unit Tests
+
+- Prefer placing unit tests in a `__tests__` directory inside the target file's directory. Example: `apps/api/src/contexts/prompt/domain/__tests__/claude-options.vo.spec.ts`.
+- Target pure services, functions, controllers without HTTP transport, and small units of business logic.
+- Unit tests should cover representative edge cases, boundary values, invalid shapes, error paths, immutability, identity/equality behavior, and meaningful default behavior when those cases define the unit's contract. Prefer proving these details at the unit level instead of pushing them into slower integration tests.
+- Do not use an HTTP server, actual Nest application startup, or external I/O.
+- Create required dependencies directly or replace them with lightweight mocks/stubs.
+- Use a Nest testing module only when DI configuration must be verified.
+
+#### Domain Unit Tests
+
+- Domain unit tests should focus on behavior and invariants owned by the domain object or domain service.
+- For value objects and domain values, prioritize valid construction, normalization, invariant violations, boundary values, equality or identity behavior, and immutability only when it is an explicit contract.
+- For aggregates and entities, prioritize lifecycle creation and restoration, state transitions, consistency boundary protection, domain event emission, and thrown domain errors for invalid domain actions.
+- Express cases in domain language. Do not shape domain tests around DTO, storage, or API scenarios unless that shape is itself a domain concept.
+
+#### Application Service Unit Tests
+
+- Application service tests should be written as cases that reveal the application flow the service coordinates. Split cases by business situation, make each orchestration branch explicit through inputs and collaborator outcomes, and assert the resulting decision or side effect instead of private helper call order.
+- Prioritize application-level decisions, such as command interpretation, branching by repository or port results, domain result propagation, required storage or external port calls, and error mapping owned by the service.
+- Replace collaborators with mocks or stubs at the port boundary. Configure collaborator outcomes to make each orchestration branch explicit, then assert the final result and observable port interactions.
+- Do not repeat detailed domain invariants or adapter storage behavior in application service unit tests. Keep those in domain unit tests or boundary integration tests.
+
+### Shared Contract Tests
+
+- Shared contracts, base classes, kernel helpers, and reusable policies should have especially thorough unit tests for the behavior they own.
+- A shared contract test should prove the reusable guarantee once with minimal representative implementations, fixtures, or subclasses.
+- Concrete implementations that rely on a shared contract should not repeat inherited or delegated contract tests. They should test only their own validation, configuration, overrides, composition, and domain-specific behavior.
+- If a concrete implementation overrides, narrows, or extends shared contract behavior, test both the implementation-specific behavior and compatibility with the shared contract expectation.
+- When reviewing coverage, prefer moving duplicated implementation tests up to the shared contract test when the behavior belongs to the shared abstraction.
+
+### Integration Tests
+
+- Prefer splitting integration spec files by boundary, context, and architecture layer. The current project uses `apps/api/test/http/*.e2e-spec.ts` for HTTP boundary tests; add deeper `test/{boundary}/contexts/{context}/...` layout when the boundary grows enough to need it.
+- Use integration tests to verify interactions that unit tests cannot cover, such as routing, request and response handling, real adapter contract behavior, and real external dependency behavior.
+- If a test uses hard-to-control elements such as an actual network, REST API, system time, file system, database, or real CLI process, separate it as an integration test instead of a unit test.
+- Do not use integration tests to repeat every domain or application invariant. Keep detailed domain and application rule coverage in unit tests, and use integration tests for observable boundary behavior such as request and response shape, validation pipe behavior, framework routing, adapter wiring observed through a route or port contract, and repository save/find contracts.
+- Nest app integration test files should create the app in `beforeEach` and close it in `afterEach` when the app is initialized.
+- The outer `describe()` should name the integrated target.
+- For route tests, the inner `describe()` should usually be the controller method and route. Example: `describe('POST /prompt')`.
+
+#### Integration Boundary Layout
+
+Group integration specs under `test/{boundary}/`.
+The boundary directory names the protocol or runtime dependency under verification, such as HTTP, a real CLI process, file system access, or a real external API.
+Nested directories name the bounded context, layer, and target when the extra structure improves navigation.
+Use `test/contexts/{context}/` for shared context fixtures or helpers that are not owned by one integration boundary, not for boundary-specific specs.
+
+Use filenames to name the test target, not every participating implementation.
+Application integration tests should cover the representative production composition for the boundary; implementation-specific behavior belongs in the relevant adapter contract or integration tests.
+
+Place boundary-specific setup and support files under the same boundary directory.
+Keep helpers shared by multiple integration boundaries under `test/support/`.
+
+#### Adapter Boundary Scope
+
+Adapter integration tests should target the application-owned port or protocol contract through the real adapter implementation and any required external dependency.
+
+Split adapter test coverage by ownership of the behavior under test.
+Unit tests should cover behavior owned by the adapter code itself, such as mapping between external shapes and domain objects, preserving domain exceptions, wrapping adapter or infrastructure exceptions with useful context, and adapter-specific branching that can be proven without real external I/O.
+Integration tests should cover behavior that only becomes meaningful when the selected boundary is assembled, such as real process invocation, protocol compatibility, or route-to-provider wiring.
+
+Prefer proving each behavior at the cheapest test layer that can prove it reliably.
+Do not repeat detailed domain, application, or mapper invariant cases in integration tests only because the adapter participates in the flow.
+Integration tests may overlap with unit tests only when the same observable result proves a different responsibility.
+
+## Commands
+
+```bash
+pnpm lint:check         # ESLint checks
+pnpm typecheck          # TypeScript type checking
+pnpm test:unit          # Unit tests
+pnpm test:integration   # Integration and e2e tests
+pnpm test:integration:all # All integration tests
+pnpm test               # Unit tests, then all integration tests
+pnpm test:watch         # Vitest watch mode from the API package
+pnpm test:cov           # Unit test coverage from the API package
 ```
-src/
-  contexts/
-    session/
-      domain/__tests__/session.entity.spec.ts
-      application/__tests__/session.service.spec.ts
-      infrastructure/in-memory/__tests__/in-memory-session.repository.spec.ts
-      presentation/http/__tests__/session-http.controller.spec.ts
-    prompt/
-      domain/__tests__/claude-options.vo.spec.ts
-      application/__tests__/prompt.service.spec.ts
-      infrastructure/claude-cli/__tests__/claude-cli.adapter.spec.ts
-      presentation/http/__tests__/prompt-http.controller.spec.ts
-test/
-  http/
-    session.e2e-spec.ts
-    prompt.e2e-spec.ts
-```
 
-## Imports
-
-Always import from `vitest`, never from `@jest/globals`:
-
-```typescript
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-```
-
-## Mocking
-
-| Jest | Vitest |
-|------|--------|
-| `jest.fn()` | `vi.fn()` |
-| `jest.mocked(x)` | `vi.mocked(x)` |
-| `jest.clearAllMocks()` | `vi.clearAllMocks()` |
-| `jest.useFakeTimers()` | `vi.useFakeTimers()` |
-| `jest.advanceTimersByTime(n)` | `vi.advanceTimersByTime(n)` |
-| `jest.mock('module')` | `vi.mock('module')` |
-
-## Mocking Ports in Application Service Tests
-
-Inject mock values via Symbol DI tokens:
-
-```typescript
-await Test.createTestingModule({
-  providers: [
-    PromptService,
-    { provide: LLM_EXECUTOR, useValue: { execute: vi.fn() } },
-    { provide: SESSION_READER, useValue: { find: vi.fn() } },
-    { provide: SESSION_MANAGER, useValue: { create: vi.fn(), ... } },
-  ],
-}).compile();
-```
-
-## E2E Test Setup
-
-Override the `LLM_EXECUTOR` token so the real Claude CLI is never spawned:
-
-```typescript
-await Test.createTestingModule({ imports: [AppModule] })
-  .overrideProvider(LLM_EXECUTOR)
-  .useValue({ execute: vi.fn().mockReturnValue(mockObservable) })
-  .compile();
-```
-
-## Coverage
-
-Thresholds: **80%** for statements, branches, functions, lines.
-
-Run: `pnpm test:cov`
+Before opening a PR, run the checks that match the scope of the change.
+If only isolated services or functions changed, run `pnpm lint:check`, `pnpm typecheck`, and `pnpm test:unit`.

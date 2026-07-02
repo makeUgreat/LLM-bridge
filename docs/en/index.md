@@ -1,18 +1,29 @@
+---
+title: Documentation Convention Index
+lang: en
+audience: both
+applies_to:
+  - repository
+translation: ../ko/index.md
+---
+
 # Documentation Convention Index
 
-This document is the entry point for project-wide documentation conventions.
+## Synchronization Policy
 
-## Paired Documents
+English and Korean documents are paired documents that should describe the same policy.
+When they conflict, choose the intended policy from either language and update both documents in the same change unit.
 
-Every convention document has a paired English and Korean version. When the two conflict, the intended policy takes precedence and both documents must be synchronized.
+## Reading Rules
 
-| English | Korean |
-|---------|--------|
-| [docs/en/index.md](index.md) | [docs/ko/index.md](../ko/index.md) |
-| [docs/en/documentation-guidelines.md](documentation-guidelines.md) | [docs/ko/documentation-guidelines.md](../ko/documentation-guidelines.md) |
+Read only the documentation convention documents relevant to the current task.
+Do not load every document by default.
 
-## App Conventions
+## Routing
 
-| App | English Index |
-|-----|--------------|
-| API | [apps/api/docs/en/index.md](../../apps/api/docs/en/index.md) |
+- When creating, editing, or reviewing project Markdown documents: read [Documentation Guidelines](./documentation-guidelines.md).
+
+## Maintenance
+
+Keep this index short.
+Route only documentation convention documents that have clear documentation-work triggers.
