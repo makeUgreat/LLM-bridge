@@ -1,27 +1,27 @@
-import {
-  describe,
-  it,
-  expect,
-  beforeEach,
-  afterEach,
-  vi,
-} from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { Observable, Subject, of, firstValueFrom, toArray } from 'rxjs';
-import { PromptService } from '@contexts/prompt/application/prompt.service.js';
+import { PromptService } from '@contexts/prompt/application/prompt.service';
 import {
   LlmExecutor,
   SessionReader,
   SessionManager,
   PromptResult,
   type LlmEvent,
-} from '@contexts/prompt/domain/index.js';
+  type PromptSession,
+} from '@contexts/prompt/domain/index';
 import {
   LLM_EXECUTOR,
   SESSION_READER,
   SESSION_MANAGER,
-} from '@contexts/prompt/prompt.di-tokens.js';
-import { Session } from '@contexts/session/domain/index.js';
+} from '@contexts/prompt/prompt.di-tokens';
+
+function promptSession(
+  id: string,
+  claudeSessionId: string | null = null,
+): PromptSession {
+  return { id, claudeSessionId };
+}
 
 describe('PromptService', () => {
   let service: PromptService;
@@ -68,8 +68,7 @@ describe('PromptService', () => {
 
   describe('executeWithSession', () => {
     it('세션을 조회하고 touch 후 LLM을 실행한다', () => {
-      const session = Session.create('sess-1');
-      session.attachClaudeSession('claude-1');
+      const session = promptSession('sess-1', 'claude-1');
       vi.mocked(sessionReader.find).mockReturnValue(session);
 
       const result = service.executeWithSession({
@@ -102,7 +101,7 @@ describe('PromptService', () => {
     });
 
     it('optional 필드를 LlmExecutor에 전달한다', () => {
-      const session = Session.create('sess-1');
+      const session = promptSession('sess-1');
       vi.mocked(sessionReader.find).mockReturnValue(session);
 
       service.executeWithSession({
@@ -127,7 +126,7 @@ describe('PromptService', () => {
     });
 
     it('session_id 이벤트가 오면 updateClaudeSessionId를 호출한다', async () => {
-      const session = Session.create('sess-1');
+      const session = promptSession('sess-1');
       vi.mocked(sessionReader.find).mockReturnValue(session);
 
       const sessionIdEvent = of({
@@ -151,7 +150,7 @@ describe('PromptService', () => {
 
   describe('executeOneShot', () => {
     it('임시 세션을 생성하고 LLM을 실행한다', () => {
-      const session = Session.create('temp-1');
+      const session = promptSession('temp-1');
       vi.mocked(sessionManager.create).mockReturnValue(session);
 
       const result = service.executeOneShot({ prompt: 'hello' });
@@ -168,7 +167,7 @@ describe('PromptService', () => {
     });
 
     it('스트림 완료 후 임시 세션을 삭제한다', async () => {
-      const session = Session.create('temp-1');
+      const session = promptSession('temp-1');
       vi.mocked(sessionManager.create).mockReturnValue(session);
 
       const result = service.executeOneShot({ prompt: 'hello' });
@@ -179,7 +178,7 @@ describe('PromptService', () => {
     });
 
     it('session_id 이벤트가 오면 updateClaudeSessionId를 호출한다', async () => {
-      const session = Session.create('temp-1');
+      const session = promptSession('temp-1');
       vi.mocked(sessionManager.create).mockReturnValue(session);
 
       const sessionIdEvent = of({
@@ -200,8 +199,7 @@ describe('PromptService', () => {
 
   describe('executeSyncWithSession', () => {
     it('세션을 조회하고 이벤트를 수집하여 PromptResult를 반환한다', async () => {
-      const session = Session.create('sess-1');
-      session.attachClaudeSession('claude-1');
+      const session = promptSession('sess-1', 'claude-1');
       vi.mocked(sessionReader.find).mockReturnValue(session);
 
       const events$ = of(
@@ -236,7 +234,7 @@ describe('PromptService', () => {
     });
 
     it('assistant 타입 이벤트에서 텍스트를 추출한다', async () => {
-      const session = Session.create('sess-1');
+      const session = promptSession('sess-1');
       vi.mocked(sessionReader.find).mockReturnValue(session);
 
       const events$ = of(
@@ -261,7 +259,7 @@ describe('PromptService', () => {
     });
 
     it('에러 이벤트를 캡처한다', async () => {
-      const session = Session.create('sess-1');
+      const session = promptSession('sess-1');
       vi.mocked(sessionReader.find).mockReturnValue(session);
 
       const events$ = of(
@@ -284,7 +282,7 @@ describe('PromptService', () => {
 
   describe('executeSyncOneShot', () => {
     it('임시 세션을 생성하고 이벤트를 수집하여 PromptResult를 반환한다', async () => {
-      const session = Session.create('temp-1');
+      const session = promptSession('temp-1');
       vi.mocked(sessionManager.create).mockReturnValue(session);
 
       const events$ = of(
@@ -302,7 +300,7 @@ describe('PromptService', () => {
     });
 
     it('완료 후 임시 세션을 삭제한다', async () => {
-      const session = Session.create('temp-1');
+      const session = promptSession('temp-1');
       vi.mocked(sessionManager.create).mockReturnValue(session);
 
       await service.executeSyncOneShot({ prompt: 'hello' });
@@ -311,7 +309,7 @@ describe('PromptService', () => {
     });
 
     it('session_id 이벤트가 오면 updateClaudeSessionId를 호출한다', async () => {
-      const session = Session.create('temp-1');
+      const session = promptSession('temp-1');
       vi.mocked(sessionManager.create).mockReturnValue(session);
 
       const events$ = of(
@@ -338,8 +336,8 @@ describe('PromptService', () => {
       vi.useRealTimers();
     });
 
-    it('스트림 중 heartbeat 이벤트가 주기적으로 방출된다', async () => {
-      const session = Session.create('sess-1');
+    it('스트림 중 heartbeat 이벤트가 주기적으로 방출된다', () => {
+      const session = promptSession('sess-1');
       vi.mocked(sessionReader.find).mockReturnValue(session);
 
       const source$ = new Subject<LlmEvent>();
@@ -366,8 +364,8 @@ describe('PromptService', () => {
       expect(events[2].data).toEqual({ type: 'done', exitCode: 0 });
     });
 
-    it('소스 완료 후 heartbeat가 중지된다', async () => {
-      const session = Session.create('sess-1');
+    it('소스 완료 후 heartbeat가 중지된다', () => {
+      const session = promptSession('sess-1');
       vi.mocked(sessionReader.find).mockReturnValue(session);
 
       const source$ = new Subject<LlmEvent>();

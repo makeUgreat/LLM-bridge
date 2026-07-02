@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { InMemorySessionRepository } from '@contexts/session/infrastructure/in-memory/in-memory-session.repository.js';
-import { Session } from '@contexts/session/domain/index.js';
+import { InMemorySessionRepository } from '@contexts/session/infrastructure/in-memory/in-memory-session.repository';
+import { Session } from '@contexts/session/domain/index';
 
 describe('InMemorySessionRepository', () => {
   let repository: InMemorySessionRepository;

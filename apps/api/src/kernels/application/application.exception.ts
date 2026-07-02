@@ -1,4 +1,4 @@
-import { type ApplicationErrorBase } from './error.base.js';
+import { type ApplicationErrorBase } from './error.base';
 
 export class ApplicationException<
   F extends ApplicationErrorBase = ApplicationErrorBase,

@@ -8,14 +8,12 @@ import {
   ClaudeOptions,
   PromptResult,
   type LlmEvent,
-  type LlmSessionIdEvent,
-  type LlmAssistantEvent,
-} from '@contexts/prompt/domain/index.js';
+} from '@contexts/prompt/domain/index';
 import {
   LLM_EXECUTOR,
   SESSION_READER,
   SESSION_MANAGER,
-} from '@contexts/prompt/prompt.di-tokens.js';
+} from '@contexts/prompt/prompt.di-tokens';
 
 const HEARTBEAT_INTERVAL_MS = parseInt(
   process.env.HEARTBEAT_INTERVAL_MS ?? '15000',
@@ -127,7 +125,9 @@ export class PromptService {
     return this.collectEvents(source$);
   }
 
-  async executeSyncOneShot(command: ExecuteOneShotCommand): Promise<PromptResult> {
+  async executeSyncOneShot(
+    command: ExecuteOneShotCommand,
+  ): Promise<PromptResult> {
     const session = this.sessionManager.create();
 
     const claudeOptions = ClaudeOptions.create({
@@ -152,7 +152,7 @@ export class PromptService {
   private buildSource(claudeOptions: ClaudeOptions): Observable<LlmEvent> {
     return this.llmExecutor.execute(claudeOptions).pipe(
       tap((event: LlmEvent) => {
-        const data = event.data as LlmSessionIdEvent;
+        const data = event.data;
         if ('session_id' in data) {
           this.sessionManager.updateClaudeSessionId(
             claudeOptions.sessionId,
@@ -180,7 +180,7 @@ export class PromptService {
             textParts.push(data.text);
             break;
           case 'assistant': {
-            const contents = (data as LlmAssistantEvent).message?.content;
+            const contents = data.message?.content;
             if (Array.isArray(contents)) {
               for (const block of contents) {
                 if (block.type === 'text' && block.text) {

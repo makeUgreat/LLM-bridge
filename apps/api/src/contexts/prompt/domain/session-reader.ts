@@ -1,5 +1,5 @@
-import { type Session } from '@contexts/session/domain/index.js';
+import { type PromptSession } from './prompt-session';
 
 export abstract class SessionReader {
-  abstract find(criteria: { id: string }): Session | undefined;
+  abstract find(criteria: { id: string }): PromptSession | undefined;
 }

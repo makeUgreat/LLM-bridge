@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from '@platform/nest/app.module.js';
+import { AppModule } from '@platform/nest/app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);

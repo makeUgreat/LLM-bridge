@@ -7,16 +7,16 @@ import {
   HttpStatus,
   HttpCode,
 } from '@nestjs/common';
-import { SessionService } from '@contexts/session/application/session.service.js';
+import { SessionService } from '@contexts/session/application/session.service';
 import {
   APPLICATION_ERROR_KIND,
   ApplicationException,
-} from '@kernels/application/index.js';
+} from '@kernels/application/index';
 import {
   type CreateSessionHttpResponse,
   type DeleteSessionHttpResponse,
   type SessionHttpResponse,
-} from './dto/session.http.dto.js';
+} from './dto/session.http.dto';
 
 @Controller('sessions')
 export class SessionHttpController {

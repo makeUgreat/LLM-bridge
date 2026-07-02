@@ -54,5 +54,5 @@ export type InfrastructureErrorOf<
 >;
 
 export type InfrastructureErrorDetailsFor<
-  Kind extends InfrastructureErrorKind,
+  _Kind extends InfrastructureErrorKind,
 > = InfrastructureErrorCauseDetails;

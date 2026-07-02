@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { ClaudeOptions } from '@contexts/prompt/domain/index.js';
+import { ClaudeOptions } from '@contexts/prompt/domain/index';
+import { ValueObject } from '@kernels/domain/index';
 
 describe('ClaudeOptions', () => {
   const validParams = {
@@ -15,6 +16,8 @@ describe('ClaudeOptions', () => {
       expect(options.prompt).toBe('hello');
       expect(options.sessionId).toBe('sess-1');
       expect(options.claudeSessionId).toBeNull();
+      expect(options).toBeInstanceOf(ValueObject);
+      expect(options.unpack()).toEqual(validParams);
     });
 
     it('optional 필드를 포함하여 생성한다', () => {

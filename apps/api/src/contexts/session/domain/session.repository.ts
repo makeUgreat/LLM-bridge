@@ -1,4 +1,4 @@
-import { type Session } from './session.entity.js';
+import { type Session } from './session.entity';
 
 export abstract class SessionRepository {
   abstract save(session: Session): Session;

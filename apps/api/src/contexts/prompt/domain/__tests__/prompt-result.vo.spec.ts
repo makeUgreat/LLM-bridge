@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { PromptResult } from '@contexts/prompt/domain/index.js';
+import { PromptResult } from '@contexts/prompt/domain/index';
+import { ValueObject } from '@kernels/domain/index';
 
 describe('PromptResult', () => {
   it('텍스트, 에러, 종료코드를 포함한 결과를 생성한다', () => {
@@ -12,6 +13,12 @@ describe('PromptResult', () => {
     expect(result.text).toBe('hello world');
     expect(result.error).toBeNull();
     expect(result.exitCode).toBe(0);
+    expect(result).toBeInstanceOf(ValueObject);
+    expect(result.unpack()).toEqual({
+      text: 'hello world',
+      error: null,
+      exitCode: 0,
+    });
   });
 
   it('에러가 있는 결과를 생성한다', () => {

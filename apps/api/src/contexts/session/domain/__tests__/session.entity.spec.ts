@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { Session } from '@contexts/session/domain/index.js';
+import { Session } from '@contexts/session/domain/index';
+import { Entity } from '@kernels/domain/index';
 
 describe('Session', () => {
   describe('create', () => {
@@ -17,6 +18,19 @@ describe('Session', () => {
 
       expect(session.createdAt.getTime()).toBe(session.lastUsedAt.getTime());
     });
+
+    it('Entity base를 상속하고 base props를 포함한다', () => {
+      const session = Session.create('test-id');
+
+      expect(session).toBeInstanceOf(Entity);
+      expect(session.getProps()).toMatchObject({
+        id: 'test-id',
+        claudeSessionId: null,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        lastUsedAt: session.lastUsedAt,
+      });
+    });
   });
 
   describe('attachClaudeSession', () => {
@@ -30,6 +44,7 @@ describe('Session', () => {
       expect(session.lastUsedAt.getTime()).toBeGreaterThanOrEqual(
         originalLastUsedAt.getTime(),
       );
+      expect(session.updatedAt.getTime()).toBe(session.lastUsedAt.getTime());
     });
 
     it('빈 문자열이면 에러를 던진다', () => {

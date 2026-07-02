@@ -1,7 +1,7 @@
-import { type Session } from '@contexts/session/domain/index.js';
+import { type PromptSession } from './prompt-session';
 
 export abstract class SessionManager {
-  abstract create(): Session;
+  abstract create(): PromptSession;
   abstract touch(id: string): void;
   abstract updateClaudeSessionId(
     sessionId: string,

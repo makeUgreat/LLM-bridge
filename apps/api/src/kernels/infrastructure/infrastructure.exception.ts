@@ -1,4 +1,4 @@
-import { type InfrastructureErrorBase } from './error.base.js';
+import { type InfrastructureErrorBase } from './error.base';
 
 export class InfrastructureException<
   F extends InfrastructureErrorBase = InfrastructureErrorBase,

@@ -5,5 +5,5 @@ export {
   type InfrastructureErrorKind,
   type InfrastructureErrorSource,
   type InfrastructureErrorCauseDetails,
-} from './error.base.js';
-export { InfrastructureException } from './infrastructure.exception.js';
+} from './error.base';
+export { InfrastructureException } from './infrastructure.exception';

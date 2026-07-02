@@ -2,13 +2,19 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { Observable, of, TimeoutError } from 'rxjs';
-import { PromptHttpController } from '@contexts/prompt/presentation/http/prompt-http.controller.js';
-import { PromptService } from '@contexts/prompt/application/prompt.service.js';
-import { PromptResult, type LlmEvent } from '@contexts/prompt/domain/index.js';
+import { PromptHttpController } from '@contexts/prompt/presentation/http/prompt-http.controller';
+import { PromptService } from '@contexts/prompt/application/prompt.service';
 import {
   APPLICATION_ERROR_KIND,
   ApplicationException,
-} from '@kernels/application/index.js';
+  type ApplicationErrorBase,
+} from '@kernels/application/index';
+
+function isApplicationException(
+  error: unknown,
+): error is ApplicationException<ApplicationErrorBase> {
+  return error instanceof ApplicationException;
+}
 
 describe('PromptHttpController', () => {
   let controller: PromptHttpController;
@@ -16,13 +22,13 @@ describe('PromptHttpController', () => {
 
   const mockObservable = of({
     data: { type: 'done', exitCode: 0 },
-  } as LlmEvent);
+  }) as ReturnType<PromptService['executeOneShot']>;
 
-  const mockPromptResult = PromptResult.create({
+  const mockPromptResult = {
     text: 'hello world',
     error: null,
     exitCode: 0,
-  });
+  } as Awaited<ReturnType<PromptService['executeSyncOneShot']>>;
 
   const mockPromptService = {
     executeWithSession: vi.fn().mockReturnValue(mockObservable),
@@ -34,14 +40,14 @@ describe('PromptHttpController', () => {
   beforeEach(async () => {
     mockPromptService.executeWithSession.mockReturnValue(mockObservable);
     mockPromptService.executeOneShot.mockReturnValue(mockObservable);
-    mockPromptService.executeSyncWithSession.mockResolvedValue(mockPromptResult);
+    mockPromptService.executeSyncWithSession.mockResolvedValue(
+      mockPromptResult,
+    );
     mockPromptService.executeSyncOneShot.mockResolvedValue(mockPromptResult);
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PromptHttpController],
-      providers: [
-        { provide: PromptService, useValue: mockPromptService },
-      ],
+      providers: [{ provide: PromptService, useValue: mockPromptService }],
     }).compile();
 
     controller = module.get<PromptHttpController>(PromptHttpController);
@@ -69,13 +75,15 @@ describe('PromptHttpController', () => {
       expect(() =>
         controller.executeWithSession('nonexistent', { prompt: 'hello' }),
       ).toThrow(ApplicationException);
-      expect(() =>
-        controller.executeWithSession('nonexistent', { prompt: 'hello' }),
-      ).toThrow(
-        expect.objectContaining({
-          error: expect.objectContaining({ kind: APPLICATION_ERROR_KIND.NOT_FOUND }),
-        }),
-      );
+
+      try {
+        controller.executeWithSession('nonexistent', { prompt: 'hello' });
+      } catch (error) {
+        expect(error).toBeInstanceOf(ApplicationException);
+        if (isApplicationException(error)) {
+          expect(error.error.kind).toBe(APPLICATION_ERROR_KIND.NOT_FOUND);
+        }
+      }
     });
 
     it('optional 필드를 PromptService에 전달한다', () => {
@@ -133,7 +141,9 @@ describe('PromptHttpController', () => {
     });
 
     it('세션이 존재하지 않으면 ApplicationException(NOT_FOUND)을 던진다', async () => {
-      vi.mocked(promptService.executeSyncWithSession).mockResolvedValue(undefined);
+      vi.mocked(promptService.executeSyncWithSession).mockResolvedValue(
+        undefined,
+      );
 
       await expect(
         controller.executeSyncWithSession('nonexistent', { prompt: 'hello' }),
@@ -148,7 +158,10 @@ describe('PromptHttpController', () => {
       await expect(
         controller.executeSyncWithSession('sess-1', { prompt: 'hello' }),
       ).rejects.toThrow(
-        new HttpException('LLM execution timed out', HttpStatus.GATEWAY_TIMEOUT),
+        new HttpException(
+          'LLM execution timed out',
+          HttpStatus.GATEWAY_TIMEOUT,
+        ),
       );
     });
   });
@@ -177,7 +190,10 @@ describe('PromptHttpController', () => {
       await expect(
         controller.executeSyncOneShot({ prompt: 'hello' }),
       ).rejects.toThrow(
-        new HttpException('LLM execution timed out', HttpStatus.GATEWAY_TIMEOUT),
+        new HttpException(
+          'LLM execution timed out',
+          HttpStatus.GATEWAY_TIMEOUT,
+        ),
       );
     });
   });

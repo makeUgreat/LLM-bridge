@@ -1,8 +1,9 @@
-export { ClaudeOptions } from './claude-options.vo.js';
-export { PromptResult } from './prompt-result.vo.js';
-export { LlmExecutor } from './llm.executor.js';
-export { SessionReader } from './session-reader.js';
-export { SessionManager } from './session-manager.js';
+export { ClaudeOptions } from './claude-options.vo';
+export { PromptResult } from './prompt-result.vo';
+export { LlmExecutor } from './llm.executor';
+export { SessionReader } from './session-reader';
+export { SessionManager } from './session-manager';
+export type { PromptSession } from './prompt-session';
 export type {
   LlmEvent,
   PromptEvent,
@@ -12,4 +13,4 @@ export type {
   LlmAssistantEvent,
   LlmSessionIdEvent,
   LlmHeartbeatEvent,
-} from './prompt-event.type.js';
+} from './prompt-event.type';

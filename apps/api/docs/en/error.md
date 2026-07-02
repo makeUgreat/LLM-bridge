@@ -1,73 +1,151 @@
-# Error Handling
+---
+title: API Error Policy
+lang: en
+audience: both
+applies_to:
+  - apps/api
+translation: ../ko/error.md
+read_when:
+  - Defining, mapping, masking, propagating, or reviewing API errors and system errors.
+related:
+  - ./architecture.md
+  - ./source-dependency.md
+---
 
-Korean mirror: [ko/error.md](../ko/error.md)
+# API Error Policy
 
-## Exception Hierarchy
+Errors are part of API control flow and external contracts.
 
-Three typed exception classes live in `kernels/`:
+## Scope
 
-| Class | Source | When to throw |
-|-------|--------|---------------|
-| `DomainException<F>` | `@kernels/domain` | Domain rule violations (invalid input, invariant broken) |
-| `ApplicationException<F>` | `@kernels/application` | Use-case failures (not found, permission denied, conflict) |
-| `InfrastructureException<F>` | `@kernels/infrastructure` | External system failures (DB down, bad response) |
-| `PresentationException<F>` | `@kernels/presentation` | Request validation errors (thrown by `ZodValidationPipe`) |
+- Use this document when deciding what an error means, who owns it, when it is transformed, and what information it may expose.
+- This policy covers thrown exceptions, rejected promises, vendor raw errors, unexpected system errors, and protocol-facing error responses.
 
-Each exception carries a typed `error` payload with `kind`, `code`, `message`, and `details`.
+## Error Ownership
 
-## Throwing in Application Services
+### Exception And Response Channels
 
-```typescript
-throw new ApplicationException({
-  kind: APPLICATION_ERROR_KIND.NOT_FOUND,
-  code: 'session.not_found',
-  message: 'Session not found',
-  details: {},
-});
+This project uses exceptions as the default error channel.
+Use a structured response envelope only at protocol-facing boundaries.
+
+- A thrown error, exception, or rejected promise is interrupted control flow. Use it for domain invariant failures, technical adapter failures, operational failures, and programming errors.
+- Request validation is handled at the presentation boundary and may throw a protocol exception with a structured response body.
+- A caller should catch an exception only when it can recover, add boundary context, or translate it into a protocol response.
+- Application services should normally let infrastructure, domain, and system exceptions propagate.
+- Do not add `Result`/failure-family contracts by default. Introduce a returned failure contract only when the caller has a stable, useful branching behavior that is clearer than exception propagation.
+- Domain constructors and factories guard invariants by throwing. Treat thrown invariant failures as bugs, corrupted persisted state, or insufficient boundary validation unless a boundary explicitly translates them.
+
+### Error Shape Contracts
+
+Structured error shapes are defined as data contracts independent of the channel that carries them.
+
+- Each kernel layer defines its error shapes in `error.base.ts`.
+- An error shape carries `kind`, `code`, `message`, and `details`. The `kind` classifies the failure; the `code` identifies it stably for callers and machines.
+- The same error shape may be carried by an exception channel or a result channel if a future contract needs one. Choose the channel based on whether the caller needs to branch on the failure, not on the shape of the data.
+- Layer-specific exception wrappers (`DomainException`, `ApplicationException`, `InfrastructureException`, `PresentationException`) hold the error shape in their `error` property. Use them when throwing structured errors that a boundary must identify and translate.
+- The HTTP presentation boundary maps known application and presentation error kinds to HTTP status codes. Domain and infrastructure errors are masked unless a protocol contract explicitly owns the translation.
+
+### Error Owners
+
+Classify errors by the boundary that owns their meaning:
+
+- Domain errors: business invariant and domain model guard failures without transport, framework, process, or SDK details.
+- Application errors: use case and orchestration failures that are not owned by a specific external adapter or protocol.
+- Infrastructure errors: technical adapter failures, including CLI process, SDK, HTTP client, file system, message broker, and persistence failures.
+- Presentation errors: protocol-facing exceptions and response bodies, such as HTTP validation responses.
+- Vendor raw errors: external adapter, SDK, child process, HTTP client, or framework failures before application code wraps or masks them.
+- System errors: unexpected runtime, process, network, OS, resource, or environment failures that cannot be handled as a normal application contract.
+
+Logging may support observability, but logging alone is not error handling.
+
+## Transformation Boundaries
+
+Transform errors when they cross a boundary where the owner, audience, or exposure policy changes.
+
+- Adapter boundaries may wrap vendor raw errors in regular `Error` objects with `cause` when adding adapter context.
+- Use cases should not translate infrastructure exceptions only because an infrastructure dependency failed.
+- Protocol boundaries translate known protocol exceptions and mask unrecognized exceptions before exposing them to external clients.
+- Independent bounded contexts or modules translate errors through the communication contract used by that boundary.
+- Presentation boundaries must mask domain, infrastructure, vendor, system, and unknown errors before exposing them to external clients.
+
+Do not wrap errors only because a call stack crosses an internal folder boundary.
+Prefer transformation where it improves information hiding, ownership, observability, or caller behavior.
+
+## Error Flow
+
+```mermaid
+flowchart TB
+  subgraph external["External Contracts"]
+    direction LR
+    client["External Client"]
+    vendor["Vendor Raw Error"]
+  end
+
+  subgraph adapters["Boundary Adapters"]
+    direction LR
+    presentation["Presentation Boundary"]
+    infrastructure["Infrastructure Adapter"]
+  end
+
+  subgraph application["Application Flow"]
+    direction LR
+    service["Application Service"]
+  end
+
+  subgraph domain["Domain"]
+    direction LR
+    domainModel["Domain Model"]
+  end
+
+  vendor --> infrastructure
+  infrastructure -->|throws or rejects| service
+  domainModel -->|throws| service
+  service -->|throws or returns| presentation
+  presentation -->|normalize and mask| client
+
+  subgraph uncontrolled["Uncontrolled Runtime Errors"]
+    direction LR
+    anyLayer["May occur in any layer"]
+    exception["Exception or rejected promise path"]
+    boundary["Masked at presentation or process boundary"]
+  end
+
+  anyLayer --> exception
+  exception --> boundary
 ```
 
-Do **not** throw NestJS `NotFoundException` or other `HttpException` subclasses from domain or application layers.
+## Protocol Error Response Shape
 
-## HTTP Exception Filter
+Protocol-facing error responses should use a stable envelope.
+For HTTP responses, use `HttpErrorEnvelope` from `kernels/presentation` unless the owning protocol has a reason to differ.
 
-`HttpExceptionFilter` in `platform/nest/filters/` catches all exceptions and maps them to JSON responses:
+- `statusCode`: numeric protocol status.
+- `code`: stable value for people and machines to classify the response. Callers should depend on `code` instead of parsing `message`.
+- `message`: human-readable context for presentation or debugging. It may change, be localized, masked, or rewritten. Program code must not depend on exact `message` text.
+- `details`: minimal structured data for caller behavior or machine processing. Because it becomes part of the response contract, include only data the receiver may depend on.
 
-```json
-{
-  "statusCode": 404,
-  "code": "session.not_found",
-  "message": "Session not found",
-  "details": {}
-}
-```
+Validation responses may include field-level details when the caller can act on them.
+Do not expose internal diagnostic data through protocol responses unless the protocol contract explicitly allows it.
 
-### HTTP Status Mapping
+## Vendor Error Contracts
 
-| Exception kind | HTTP status |
-|---------------|------------|
-| `PRESENTATION.VALIDATION_FAILED` | 400 |
-| `APPLICATION.NOT_FOUND` | 404 |
-| `APPLICATION.VALIDATION_FAILED` | 400 |
-| `APPLICATION.AUTHENTICATION_REQUIRED` | 401 |
-| `APPLICATION.PERMISSION_DENIED` | 403 |
-| `APPLICATION.STATE_CONFLICT` | 409 |
-| `APPLICATION.OPERATION_NOT_ALLOWED` | 422 |
-| `APPLICATION.RATE_LIMITED` | 429 |
-| `APPLICATION.DEPENDENCY_UNAVAILABLE` | 503 |
-| `INFRASTRUCTURE.UNAVAILABLE` | 503 |
-| `INFRASTRUCTURE.TIMEOUT` | 503 |
-| Unexpected | 500 |
+Vendor raw errors are external contracts.
+When adapter code reads structured fields from a vendor error, validate and normalize those fields at the adapter boundary before wrapping or translating the error.
 
-## Request Validation
+- Prefer `zod` schemas for external error contracts when the adapter depends on structured vendor fields, such as SDK error codes, process exit metadata, or HTTP client response metadata.
+- Define external enum-like code sets once as `as const` objects, build the `zod` enum schema from that object, and derive the TypeScript type from the schema with `z.infer`.
+- Avoid maintaining a separate TypeScript enum or union and a separate `zod` enum list for the same external code set.
+- Allow unknown vendor metadata when the vendor error may include fields the adapter does not own; normalize only the fields the application contract needs.
 
-`ZodValidationPipe` reads `zodSchema` from the DTO class and validates the request body. On failure it throws a `PresentationException(VALIDATION_FAILED)`.
+## Unexpected System Errors
 
-DTOs use static class properties:
+Applications cannot know or handle every possible thrown value or rejected promise.
+At boundaries, preserve only the errors the boundary explicitly understands and mask unrecognized errors before exposing them outside the application.
 
-```typescript
-export class PromptBodyDto {
-  static readonly zodSchema = z.object({ prompt: z.string().min(1) });
-  static readonly zodErrorCode = 'prompt.body.validation_failed';
-  static readonly zodErrorMessage = 'Invalid prompt request body';
-}
-```
+- Convert recognized technical failures into explicit protocol responses only when the external caller can handle them as part of the protocol contract.
+- Keep unrecognized failures on the exception or rejected-promise path until a presentation or process boundary masks them as a safe internal response.
+- Preserve the original cause when possible for internal observability.
+- Make unrecognized failures observable through logging, metrics, tracing, or another operational signal.
+- Do not create silent failures by swallowing unknown failures without handling or observability.
+
+Unexpected system error responses sent outside the application must be stable, safe, and masked.

@@ -12,19 +12,19 @@ import {
   type PresentationErrorBase,
   type PresentationErrorKind,
   type HttpErrorEnvelope,
-} from '@kernels/presentation/index.js';
+} from '@kernels/presentation/index';
 import {
   ApplicationException,
   APPLICATION_ERROR_KIND,
   type ApplicationErrorBase,
   type ApplicationErrorKind,
-} from '@kernels/application/index.js';
+} from '@kernels/application/index';
 import {
   InfrastructureException,
   INFRASTRUCTURE_ERROR_KIND,
   type InfrastructureErrorBase,
   type InfrastructureErrorKind,
-} from '@kernels/infrastructure/index.js';
+} from '@kernels/infrastructure/index';
 
 const INTERNAL_ERROR_RESPONSE = {
   statusCode: HttpStatus.INTERNAL_SERVER_ERROR,

@@ -1,4 +1,4 @@
-import { type PresentationErrorBase } from './error.base.js';
+import { type PresentationErrorBase } from './error.base';
 
 export class PresentationException<
   F extends PresentationErrorBase = PresentationErrorBase,

@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { EventEmitter } from 'events';
 import { firstValueFrom, toArray } from 'rxjs';
 import { spawn } from 'child_process';
-import { ClaudeCliAdapter } from '@contexts/prompt/infrastructure/claude-cli/claude-cli.adapter.js';
-import { ClaudeOptions, type LlmEvent } from '@contexts/prompt/domain/index.js';
+import { ClaudeCliAdapter } from '@contexts/prompt/infrastructure/claude-cli/claude-cli.adapter';
+import { ClaudeOptions, type LlmEvent } from '@contexts/prompt/domain/index';
 
 vi.mock('child_process', () => ({
   spawn: vi.fn(),
@@ -77,9 +77,7 @@ describe('ClaudeCliAdapter', () => {
     });
 
     it('claudeSessionId가 있으면 --resume을 추가한다', () => {
-      adapter
-        .execute(defaultOptions({ claudeSessionId: 'cs-1' }))
-        .subscribe();
+      adapter.execute(defaultOptions({ claudeSessionId: 'cs-1' })).subscribe();
 
       const args = mockSpawn.mock.calls[0][1];
       expect(args).toContain('--resume');
@@ -95,9 +93,7 @@ describe('ClaudeCliAdapter', () => {
     });
 
     it('permissionMode 옵션을 전달한다', () => {
-      adapter
-        .execute(defaultOptions({ permissionMode: 'plan' }))
-        .subscribe();
+      adapter.execute(defaultOptions({ permissionMode: 'plan' })).subscribe();
 
       const args = mockSpawn.mock.calls[0][1];
       expect(args).toContain('--permission-mode');
@@ -126,9 +122,7 @@ describe('ClaudeCliAdapter', () => {
     });
 
     it('workingDir를 cwd로 전달한다', () => {
-      adapter
-        .execute(defaultOptions({ workingDir: '/tmp/work' }))
-        .subscribe();
+      adapter.execute(defaultOptions({ workingDir: '/tmp/work' })).subscribe();
 
       expect(mockSpawn.mock.calls[0][2].cwd).toBe('/tmp/work');
     });
@@ -167,10 +161,7 @@ describe('ClaudeCliAdapter', () => {
         adapter.execute(defaultOptions()).pipe(toArray()),
       );
 
-      fakeProc.stdout.emit(
-        'data',
-        Buffer.from('{"session_id":"new-cs-id"}\n'),
-      );
+      fakeProc.stdout.emit('data', Buffer.from('{"session_id":"new-cs-id"}\n'));
       fakeProc.emit('close', 0);
 
       const events = await promise;
@@ -269,10 +260,7 @@ describe('ClaudeCliAdapter', () => {
         adapter.execute(defaultOptions()).pipe(toArray()),
       );
 
-      fakeProc.stdout.emit(
-        'data',
-        Buffer.from('{"session_id":"from-buffer"}'),
-      );
+      fakeProc.stdout.emit('data', Buffer.from('{"session_id":"from-buffer"}'));
       fakeProc.emit('close', 0);
 
       const events = await promise;

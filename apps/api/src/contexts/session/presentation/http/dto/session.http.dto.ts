@@ -1,4 +1,4 @@
-import { z, type ZodIssue } from 'zod';
+import { z } from 'zod';
 
 // Response shapes (no validation needed — output only)
 export interface CreateSessionHttpResponse {

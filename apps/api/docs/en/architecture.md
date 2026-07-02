@@ -1,62 +1,83 @@
-# Architecture
+---
+title: API Architecture Convention
+lang: en
+audience: both
+applies_to:
+  - apps/api
+translation: ../ko/architecture.md
+related:
+  - ./error.md
+  - ./ddd.md
+  - ./source-dependency.md
+  - ./runtime-wiring.md
+---
 
-Korean mirror: [ko/architecture.md](../ko/architecture.md)
+# API Architecture Convention
 
-## Style
+This document is the API architecture map; use the linked documents for detailed rules.
 
-Hexagonal (Ports & Adapters), with DDD bounded contexts.
+## Scope
 
-## Directory Layout
+- Use this document when deciding the high-level source area for API code.
+- This document names architectural boundaries and routes to detailed policy documents. It does not replace the DDD, source dependency, runtime wiring, or error policies.
 
-```
+## Architecture Axes
+
+API architecture is described across two axes:
+
+- DDD model boundaries define where a model, language, and responsibility are valid.
+- Dependency and layer boundaries define which code may depend on which other code.
+
+Read the error policy when defining, transforming, masking, or exposing application errors, exceptions, protocol error responses, or system errors.
+
+## Related Documents
+
+- [API Error Policy](./error.md): application error meaning, categories, transformation, response structure, and unexpected system error handling.
+- [API DDD Convention](./ddd.md): bounded contexts, implementation modules, domain kernel, and domain model rules.
+- [API Source Dependency Convention](./source-dependency.md): import direction, layer boundaries, and framework import rules.
+- [API Runtime Wiring Convention](./runtime-wiring.md): NestJS DI, provider registration, platform runtime, and port binding rules.
+
+## Source Boundaries
+
+The high-level API source boundaries are:
+
+```text
 src/
-  core/                      # Pure utility helpers (no framework)
-  kernels/                   # Base classes per layer (domain / application / infrastructure / presentation)
+  main.ts
+  core/
+  kernels/
+    domain/
+    application/
+    infrastructure/
+    presentation/
   platform/
-    nest/                    # NestJS wiring: AppModule, ZodValidationPipe, HttpExceptionFilter
+    nest/
   contexts/
-    session/                 # Bounded context — session lifecycle
+    session/
       domain/
       application/
       infrastructure/
-        in-memory/
       presentation/
-        http/
-      session.di-tokens.ts
-      session.module.ts
-    prompt/                  # Bounded context — LLM prompt execution
+    prompt/
       domain/
       application/
       infrastructure/
-        claude-cli/
-        session/
       presentation/
-        http/
-      prompt.di-tokens.ts
-      prompt.module.ts
 ```
 
-## Layer Rules
+This map names architectural boundaries, not a complete folder contract.
+Create lower-level directories and layer folders only when code needs them.
+Subdirectories inside context layers, `platform/nest`, and `kernels` may differ by feature, adapter type, or framework need.
 
-| Layer | May import |
-|-------|-----------|
-| `domain/` | Nothing outside `domain/` in the same context; no framework |
-| `application/` | `domain/` only; `@Injectable()` allowed for DI registration |
-| `infrastructure/` | Anything (`domain/`, `application/`, other contexts via ports) |
-| `presentation/` | Anything |
+## Current Contexts
 
-Cross-context access is always through an abstract port class defined in the consuming context's `domain/`.
+- `session` owns browser/API conversation session lifecycle and Claude session ID tracking.
+- `prompt` owns prompt execution flow and the outbound Claude CLI integration.
 
-## File Naming
+Cross-context access goes through a narrow contract owned by the consuming context.
+For example, `prompt` reads and updates session data through `SessionReader` and `SessionManager` adapters instead of reaching into session storage directly.
 
-| Layer | Suffix | Example |
-|-------|--------|---------|
-| domain entity | `*.entity.ts` | `session.entity.ts` |
-| domain value object | `*.vo.ts` | `claude-options.vo.ts` |
-| domain port | no suffix (abstract class) | `session.repository.ts`, `llm.executor.ts` |
-| application service | `*.service.ts` | `session.service.ts` |
-| infrastructure adapter | `*.adapter.ts`, `*.repository.ts` | `claude-cli.adapter.ts` |
-| presentation controller | `*.controller.ts` | `session-http.controller.ts` |
-| presentation DTO | `*.http.dto.ts` | `session.http.dto.ts` |
-| DI tokens | `*.di-tokens.ts` | `session.di-tokens.ts` |
-| NestJS module | `*.module.ts` | `session.module.ts` |
+## Directory Reading Rules
+
+- First decide whether code belongs to a bounded context, kernel, core, or platform.
+- Use the DDD, source dependency, and runtime wiring documents for detailed placement, import, and wiring rules.

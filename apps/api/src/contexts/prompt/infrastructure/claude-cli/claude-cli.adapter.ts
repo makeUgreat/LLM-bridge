@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { spawn } from 'child_process';
 import { Observable } from 'rxjs';
-import { LlmExecutor } from '@contexts/prompt/domain/index.js';
+import { LlmExecutor } from '@contexts/prompt/domain/index';
 import {
   type ClaudeOptions,
   type PromptEvent,
   type LlmEvent,
-} from '@contexts/prompt/domain/index.js';
+} from '@contexts/prompt/domain/index';
 
 @Injectable()
 export class ClaudeCliAdapter extends LlmExecutor {

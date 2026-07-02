@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { SessionManager } from '@contexts/prompt/domain/index.js';
-import { SessionService } from '@contexts/session/application/session.service.js';
-import { type Session } from '@contexts/session/domain/index.js';
+import {
+  SessionManager,
+  type PromptSession,
+} from '@contexts/prompt/domain/index';
+import { SessionService } from '@contexts/session/application/session.service';
 
 @Injectable()
 export class SessionManagerAdapter extends SessionManager {
@@ -9,8 +11,12 @@ export class SessionManagerAdapter extends SessionManager {
     super();
   }
 
-  create(): Session {
-    return this.sessionService.create();
+  create(): PromptSession {
+    const session = this.sessionService.create();
+    return {
+      id: session.id,
+      claudeSessionId: session.claudeSessionId,
+    };
   }
 
   touch(id: string): void {

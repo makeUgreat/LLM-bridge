@@ -1,18 +1,30 @@
+---
+title: 문서 컨벤션 인덱스
+lang: ko
+audience: both
+applies_to:
+  - repository
+source: ../en/index.md
+last_synced: 2026-07-02
+---
+
 # 문서 컨벤션 인덱스
 
-이 문서는 프로젝트 전체 문서 컨벤션의 진입점입니다.
+## 동기화 정책
 
-## 페어 문서
+영어 문서와 한글 문서는 같은 정책을 설명하는 쌍 문서다.
+두 문서가 충돌하면 영어와 한글 중 의도한 정책을 선택하고 같은 변경 단위에서 양쪽 문서를 모두 수정한다.
 
-모든 컨벤션 문서는 영어와 한국어 버전이 쌍으로 존재합니다. 두 문서가 충돌하면 의도한 정책을 기준으로 양쪽을 함께 수정합니다.
+## 읽기 규칙
 
-| 영어 | 한국어 |
-|------|--------|
-| [docs/en/index.md](../en/index.md) | [docs/ko/index.md](index.md) |
-| [docs/en/documentation-guidelines.md](../en/documentation-guidelines.md) | [docs/ko/documentation-guidelines.md](documentation-guidelines.md) |
+현재 작업과 관련된 문서만 읽는다.
+기본적으로 모든 문서를 읽지 않는다.
 
-## 앱 컨벤션
+## 라우팅
 
-| 앱 | 영어 인덱스 |
-|----|------------|
-| API | [apps/api/docs/en/index.md](../../apps/api/docs/en/index.md) |
+- 문서를 생성, 수정, 리뷰할 때: [문서 작성 가이드라인](./documentation-guidelines.md)을 읽는다.
+
+## 유지보수
+
+이 인덱스는 짧게 유지한다.
+명확한 문서 작업 trigger가 있는 문서 컨벤션 문서만 라우팅한다.

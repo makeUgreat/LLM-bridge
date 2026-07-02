@@ -1,62 +1,84 @@
-# 아키텍처
+---
+title: API 아키텍처 컨벤션
+lang: ko
+audience: both
+applies_to:
+  - apps/api
+source: ../en/architecture.md
+last_synced: 2026-07-02
+related:
+  - ./error.md
+  - ./ddd.md
+  - ./source-dependency.md
+  - ./runtime-wiring.md
+---
 
-영어 미러: [en/architecture.md](../en/architecture.md)
+# API 아키텍처 컨벤션
 
-## 스타일
+이 문서는 API architecture map이다. 자세한 규칙은 연결된 문서를 사용한다.
 
-헥사고날(Ports & Adapters) 아키텍처 + DDD 바운디드 컨텍스트.
+## 적용 범위
 
-## 디렉토리 구조
+- API 코드가 어느 상위 source area에 속하는지 결정할 때 이 문서를 사용한다.
+- 이 문서는 architectural boundary를 이름 붙이고 상세 정책 문서로 라우팅한다. DDD, source dependency, runtime wiring, error policy를 대체하지 않는다.
 
-```
+## 아키텍처 축
+
+API architecture는 두 축으로 설명한다:
+
+- DDD model boundary는 model, language, responsibility가 어디에서 유효한지 정의한다.
+- Dependency와 layer boundary는 어떤 코드가 어떤 다른 코드에 의존할 수 있는지 정의한다.
+
+Application error, exception, protocol error response, system error를 정의, 변환, masking, 노출할 때는 error policy를 읽는다.
+
+## 관련 문서
+
+- [API 에러 정책](./error.md): application error 의미, category, transformation, response structure, unexpected system error handling.
+- [API DDD 컨벤션](./ddd.md): bounded context, implementation module, domain kernel, domain model rule.
+- [API 소스 의존성 컨벤션](./source-dependency.md): import direction, layer boundary, framework import rule.
+- [API 런타임 와이어링 컨벤션](./runtime-wiring.md): NestJS DI, provider registration, platform runtime, port binding rule.
+
+## 소스 경계
+
+상위 API source boundary는 다음과 같다:
+
+```text
 src/
-  core/                      # 순수 유틸리티 헬퍼 (프레임워크 의존 없음)
-  kernels/                   # 레이어별 베이스 클래스 (domain / application / infrastructure / presentation)
+  main.ts
+  core/
+  kernels/
+    domain/
+    application/
+    infrastructure/
+    presentation/
   platform/
-    nest/                    # NestJS 와이어링: AppModule, ZodValidationPipe, HttpExceptionFilter
+    nest/
   contexts/
-    session/                 # 바운디드 컨텍스트 — 세션 생명주기
+    session/
       domain/
       application/
       infrastructure/
-        in-memory/
       presentation/
-        http/
-      session.di-tokens.ts
-      session.module.ts
-    prompt/                  # 바운디드 컨텍스트 — LLM 프롬프트 실행
+    prompt/
       domain/
       application/
       infrastructure/
-        claude-cli/
-        session/
       presentation/
-        http/
-      prompt.di-tokens.ts
-      prompt.module.ts
 ```
 
-## 레이어 규칙
+이 map은 architectural boundary를 이름 붙일 뿐, 완전한 folder contract가 아니다.
+Code가 필요로 할 때만 하위 directory와 layer folder를 만든다.
+Context layer, `platform/nest`, `kernels` 내부 subdirectory는 feature, adapter type, framework need에 따라 달라질 수 있다.
 
-| 레이어 | import 가능 범위 |
-|--------|----------------|
-| `domain/` | 같은 컨텍스트 `domain/` 내부만; 프레임워크 금지 |
-| `application/` | `domain/`만 허용; `@Injectable()` 허용 (DI 등록 목적) |
-| `infrastructure/` | 모두 허용 (`domain/`, `application/`, 포트를 통한 타 컨텍스트) |
-| `presentation/` | 모두 허용 |
+## 현재 컨텍스트
 
-크로스 컨텍스트 접근은 항상 소비 컨텍스트의 `domain/`에 정의된 추상 포트 클래스를 통해 이루어집니다.
+- `session`은 browser/API conversation session lifecycle과 Claude session ID tracking을 소유한다.
+- `prompt`는 prompt execution flow와 outbound Claude CLI integration을 소유한다.
 
-## 파일 네이밍
+Cross-context access는 consuming context가 소유한 좁은 contract를 통한다.
+예를 들어 `prompt`는 session storage에 직접 접근하지 않고 `SessionReader`, `SessionManager` adapter를 통해 session data를 읽고 갱신한다.
 
-| 레이어 | 접미사 | 예시 |
-|--------|--------|------|
-| 도메인 엔티티 | `*.entity.ts` | `session.entity.ts` |
-| 도메인 값 객체 | `*.vo.ts` | `claude-options.vo.ts` |
-| 도메인 포트 | 접미사 없음 (abstract class) | `session.repository.ts`, `llm.executor.ts` |
-| 애플리케이션 서비스 | `*.service.ts` | `session.service.ts` |
-| 인프라 어댑터 | `*.adapter.ts`, `*.repository.ts` | `claude-cli.adapter.ts` |
-| 프레젠테이션 컨트롤러 | `*.controller.ts` | `session-http.controller.ts` |
-| 프레젠테이션 DTO | `*.http.dto.ts` | `session.http.dto.ts` |
-| DI 토큰 | `*.di-tokens.ts` | `session.di-tokens.ts` |
-| NestJS 모듈 | `*.module.ts` | `session.module.ts` |
+## 디렉토리 읽기 규칙
+
+- 먼저 코드가 bounded context, kernel, core, platform 중 어디에 속하는지 결정한다.
+- 자세한 placement, import, wiring 규칙은 DDD, source dependency, runtime wiring 문서를 사용한다.

@@ -1,14 +1,20 @@
-export class ClaudeOptions {
-  private constructor(
-    public readonly prompt: string,
-    public readonly sessionId: string,
-    public readonly claudeSessionId: string | null,
-    public readonly workingDir?: string,
-    public readonly model?: string,
-    public readonly permissionMode?: string,
-    public readonly allowedTools?: readonly string[],
-    public readonly systemPrompt?: string,
-  ) {}
+import { ValueObject, type ValueObjectProps } from '@kernels/domain/index';
+
+interface ClaudeOptionsProps {
+  prompt: string;
+  sessionId: string;
+  claudeSessionId: string | null;
+  workingDir?: string;
+  model?: string;
+  permissionMode?: string;
+  allowedTools?: readonly string[];
+  systemPrompt?: string;
+}
+
+export class ClaudeOptions extends ValueObject<ClaudeOptionsProps> {
+  private constructor(props: ClaudeOptionsProps) {
+    super(props);
+  }
 
   static create(params: {
     prompt: string;
@@ -20,18 +26,53 @@ export class ClaudeOptions {
     allowedTools?: string[];
     systemPrompt?: string;
   }): ClaudeOptions {
-    if (!params.prompt || params.prompt.trim().length === 0) {
+    return new ClaudeOptions({
+      prompt: params.prompt,
+      sessionId: params.sessionId,
+      claudeSessionId: params.claudeSessionId,
+      workingDir: params.workingDir,
+      model: params.model,
+      permissionMode: params.permissionMode,
+      allowedTools: params.allowedTools ? [...params.allowedTools] : undefined,
+      systemPrompt: params.systemPrompt,
+    });
+  }
+
+  get prompt(): string {
+    return this.props.prompt;
+  }
+
+  get sessionId(): string {
+    return this.props.sessionId;
+  }
+
+  get claudeSessionId(): string | null {
+    return this.props.claudeSessionId;
+  }
+
+  get workingDir(): string | undefined {
+    return this.props.workingDir;
+  }
+
+  get model(): string | undefined {
+    return this.props.model;
+  }
+
+  get permissionMode(): string | undefined {
+    return this.props.permissionMode;
+  }
+
+  get allowedTools(): readonly string[] | undefined {
+    return this.props.allowedTools;
+  }
+
+  get systemPrompt(): string | undefined {
+    return this.props.systemPrompt;
+  }
+
+  protected validate(props: ValueObjectProps<ClaudeOptionsProps>): void {
+    if (!props.prompt || props.prompt.trim().length === 0) {
       throw new Error('Prompt must not be empty');
     }
-    return new ClaudeOptions(
-      params.prompt,
-      params.sessionId,
-      params.claudeSessionId,
-      params.workingDir,
-      params.model,
-      params.permissionMode,
-      params.allowedTools ? [...params.allowedTools] : undefined,
-      params.systemPrompt,
-    );
   }
 }

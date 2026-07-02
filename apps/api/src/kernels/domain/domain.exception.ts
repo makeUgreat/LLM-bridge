@@ -1,4 +1,4 @@
-import { type DomainErrorBase } from './error.base.js';
+import { type DomainErrorBase } from './error.base';
 
 export class DomainException<
   F extends DomainErrorBase = DomainErrorBase,
