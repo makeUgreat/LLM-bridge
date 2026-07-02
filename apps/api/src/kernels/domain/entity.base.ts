@@ -1,4 +1,4 @@
-import { Guard } from '@core/guard.js';
+import { Guard } from '@core/guard';
 
 export type AggregateID = string;
 
@@ -52,6 +52,10 @@ export abstract class Entity<EntityProps> {
 
   get updatedAt(): Date {
     return this._updatedAt;
+  }
+
+  protected touchUpdatedAt(updatedAt: Date = new Date()): void {
+    this._updatedAt = updatedAt;
   }
 
   getProps(): EntityProps & BaseEntityProps {

@@ -4,7 +4,7 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import { SessionService } from '@contexts/session/application/session.service.js';
+import { SessionService } from '@contexts/session/application/session.service';
 
 @Injectable()
 export class SessionCleanupService implements OnModuleInit, OnModuleDestroy {

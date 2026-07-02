@@ -1,4 +1,4 @@
-export { PresentationException } from './presentation.exception.js';
+export { PresentationException } from './presentation.exception';
 export {
   PRESENTATION_ERROR_KIND,
   type PresentationErrorBase,
@@ -7,4 +7,4 @@ export {
   type PresentationValidationDetails,
   type PresentationValidationFieldDetail,
   type HttpErrorEnvelope,
-} from './error.base.js';
+} from './error.base';

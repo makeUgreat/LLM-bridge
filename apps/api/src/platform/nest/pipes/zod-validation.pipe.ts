@@ -8,7 +8,7 @@ import {
   PRESENTATION_ERROR_KIND,
   type PresentationValidationDetails,
   type PresentationValidationFieldDetail,
-} from '@kernels/presentation/index.js';
+} from '@kernels/presentation/index';
 import { type ZodError, type ZodIssue, type ZodType } from 'zod';
 
 interface ZodValidationMetadata {

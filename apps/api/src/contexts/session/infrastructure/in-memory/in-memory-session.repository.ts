@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Session, SessionRepository } from '@contexts/session/domain/index.js';
+import { Session, SessionRepository } from '@contexts/session/domain/index';
 
 @Injectable()
 export class InMemorySessionRepository extends SessionRepository {

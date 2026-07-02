@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { Session } from '@contexts/session/domain/index.js';
-import { SessionRepository } from '@contexts/session/domain/index.js';
-import { SESSION_REPOSITORY } from '@contexts/session/session.di-tokens.js';
+import { Session } from '@contexts/session/domain/index';
+import { SessionRepository } from '@contexts/session/domain/index';
+import { SESSION_REPOSITORY } from '@contexts/session/session.di-tokens';
 
 @Injectable()
 export class SessionService {

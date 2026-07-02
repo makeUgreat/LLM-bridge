@@ -1,8 +1,21 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { type INestApplication } from '@nestjs/common';
+import { type Server } from 'node:http';
 import request from 'supertest';
-import { AppModule } from '@platform/nest/app.module.js';
+import { AppModule } from '@platform/nest/app.module';
+import {
+  type CreateSessionHttpResponse,
+  type SessionHttpResponse,
+} from '@contexts/session/presentation/http/dto/session.http.dto';
+
+function serverOf(app: INestApplication): Server {
+  return app.getHttpServer() as Server;
+}
+
+function responseBody<T>(body: unknown): T {
+  return body as T;
+}
 
 describe('SessionHttpController (e2e)', () => {
   let app: INestApplication;
@@ -21,12 +34,13 @@ describe('SessionHttpController (e2e)', () => {
   });
 
   it('POST /sessions → 세션 생성', () => {
-    return request(app.getHttpServer())
+    return request(serverOf(app))
       .post('/sessions')
       .expect(201)
       .expect((res) => {
-        expect(res.body.sessionId).toBeDefined();
-        expect(res.body.createdAt).toBeDefined();
+        const body = responseBody<CreateSessionHttpResponse>(res.body);
+        expect(body.sessionId).toBeDefined();
+        expect(body.createdAt).toBeDefined();
       });
   });
 
@@ -37,7 +51,7 @@ describe('SessionHttpController (e2e)', () => {
     const freshApp = moduleFixture.createNestApplication();
     await freshApp.init();
 
-    await request(freshApp.getHttpServer())
+    await request(serverOf(freshApp))
       .get('/sessions')
       .expect(200)
       .expect((res) => {
@@ -48,24 +62,26 @@ describe('SessionHttpController (e2e)', () => {
   });
 
   it('GET /sessions → 생성된 세션 포함', async () => {
-    await request(app.getHttpServer()).post('/sessions');
+    await request(serverOf(app)).post('/sessions');
 
-    return request(app.getHttpServer())
+    return request(serverOf(app))
       .get('/sessions')
       .expect(200)
       .expect((res) => {
-        expect(res.body.length).toBeGreaterThanOrEqual(1);
-        expect(res.body[0].id).toBeDefined();
+        const body = responseBody<SessionHttpResponse[]>(res.body);
+        expect(body.length).toBeGreaterThanOrEqual(1);
+        expect(body[0]?.id).toBeDefined();
       });
   });
 
   it('DELETE /sessions/:id → 존재하는 세션 삭제 시 200', async () => {
-    const createRes = await request(app.getHttpServer())
+    const createRes = await request(serverOf(app))
       .post('/sessions')
       .expect(201);
+    const createBody = responseBody<CreateSessionHttpResponse>(createRes.body);
 
-    return request(app.getHttpServer())
-      .delete(`/sessions/${createRes.body.sessionId}`)
+    return request(serverOf(app))
+      .delete(`/sessions/${createBody.sessionId}`)
       .expect(200)
       .expect((res) => {
         expect(res.body).toEqual({ deleted: true });
@@ -73,8 +89,6 @@ describe('SessionHttpController (e2e)', () => {
   });
 
   it('DELETE /sessions/:id → 존재하지 않는 세션 삭제 시 404', () => {
-    return request(app.getHttpServer())
-      .delete('/sessions/nonexistent')
-      .expect(404);
+    return request(serverOf(app)).delete('/sessions/nonexistent').expect(404);
   });
 });

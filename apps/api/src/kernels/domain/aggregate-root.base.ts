@@ -1,5 +1,5 @@
-import { type DomainEvent } from './domain-event.base.js';
-import { Entity } from './entity.base.js';
+import { type DomainEvent } from './domain-event.base';
+import { Entity } from './entity.base';
 
 type DomainEventByName<
   TDomainEvent extends DomainEvent,

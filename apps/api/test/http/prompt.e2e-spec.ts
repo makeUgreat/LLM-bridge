@@ -9,11 +9,22 @@ import {
 } from 'vitest';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { type INestApplication } from '@nestjs/common';
+import { type Server } from 'node:http';
 import request from 'supertest';
 import { Observable } from 'rxjs';
-import { AppModule } from '@platform/nest/app.module.js';
-import { LLM_EXECUTOR } from '@contexts/prompt/prompt.di-tokens.js';
-import { type LlmEvent } from '@contexts/prompt/domain/index.js';
+import { AppModule } from '@platform/nest/app.module';
+import { LLM_EXECUTOR } from '@contexts/prompt/prompt.di-tokens';
+import { type LlmEvent } from '@contexts/prompt/domain/index';
+import { type SyncPromptHttpResponse } from '@contexts/prompt/presentation/http/dto/prompt.http.dto';
+import { type CreateSessionHttpResponse } from '@contexts/session/presentation/http/dto/session.http.dto';
+
+function serverOf(app: INestApplication): Server {
+  return app.getHttpServer() as Server;
+}
+
+function responseBody<T>(body: unknown): T {
+  return body as T;
+}
 
 describe('PromptHttpController (e2e)', () => {
   let app: INestApplication;
@@ -49,30 +60,36 @@ describe('PromptHttpController (e2e)', () => {
 
   describe('POST /sessions/:id/prompt', () => {
     it('존재하지 않는 세션이면 404를 반환한다', () => {
-      return request(app.getHttpServer())
+      return request(serverOf(app))
         .post('/sessions/nonexistent/prompt')
         .send({ prompt: 'hello' })
         .expect(404);
     });
 
     it('prompt가 없으면 400을 반환한다', async () => {
-      const createRes = await request(app.getHttpServer())
+      const createRes = await request(serverOf(app))
         .post('/sessions')
         .expect(201);
+      const createBody = responseBody<CreateSessionHttpResponse>(
+        createRes.body,
+      );
 
-      return request(app.getHttpServer())
-        .post(`/sessions/${createRes.body.sessionId}/prompt`)
+      return request(serverOf(app))
+        .post(`/sessions/${createBody.sessionId}/prompt`)
         .send({ prompt: '' })
         .expect(400);
     });
 
     it('정상 요청 시 SSE 응답을 반환한다', async () => {
-      const createRes = await request(app.getHttpServer())
+      const createRes = await request(serverOf(app))
         .post('/sessions')
         .expect(201);
+      const createBody = responseBody<CreateSessionHttpResponse>(
+        createRes.body,
+      );
 
-      await request(app.getHttpServer())
-        .post(`/sessions/${createRes.body.sessionId}/prompt`)
+      await request(serverOf(app))
+        .post(`/sessions/${createBody.sessionId}/prompt`)
         .send({ prompt: 'hello' })
         .expect(201);
 
@@ -84,14 +101,14 @@ describe('PromptHttpController (e2e)', () => {
 
   describe('POST /prompt', () => {
     it('prompt가 없으면 400을 반환한다', () => {
-      return request(app.getHttpServer())
+      return request(serverOf(app))
         .post('/prompt')
         .send({ prompt: '' })
         .expect(400);
     });
 
     it('정상 요청 시 SSE 응답을 반환한다', async () => {
-      await request(app.getHttpServer())
+      await request(serverOf(app))
         .post('/prompt')
         .send({ prompt: 'hello' })
         .expect(201);
@@ -107,34 +124,41 @@ describe('PromptHttpController (e2e)', () => {
 
   describe('POST /sessions/:id/prompt/sync', () => {
     it('존재하지 않는 세션이면 404를 반환한다', () => {
-      return request(app.getHttpServer())
+      return request(serverOf(app))
         .post('/sessions/nonexistent/prompt/sync')
         .send({ prompt: 'hello' })
         .expect(404);
     });
 
     it('prompt가 없으면 400을 반환한다', async () => {
-      const createRes = await request(app.getHttpServer())
+      const createRes = await request(serverOf(app))
         .post('/sessions')
         .expect(201);
+      const createBody = responseBody<CreateSessionHttpResponse>(
+        createRes.body,
+      );
 
-      return request(app.getHttpServer())
-        .post(`/sessions/${createRes.body.sessionId}/prompt/sync`)
+      return request(serverOf(app))
+        .post(`/sessions/${createBody.sessionId}/prompt/sync`)
         .send({ prompt: '' })
         .expect(400);
     });
 
     it('정상 요청 시 JSON 응답을 반환한다', async () => {
-      const createRes = await request(app.getHttpServer())
+      const createRes = await request(serverOf(app))
         .post('/sessions')
         .expect(201);
+      const createBody = responseBody<CreateSessionHttpResponse>(
+        createRes.body,
+      );
 
-      const res = await request(app.getHttpServer())
-        .post(`/sessions/${createRes.body.sessionId}/prompt/sync`)
+      const res = await request(serverOf(app))
+        .post(`/sessions/${createBody.sessionId}/prompt/sync`)
         .send({ prompt: 'hello' })
         .expect(200);
+      const body = responseBody<SyncPromptHttpResponse>(res.body);
 
-      expect(res.body).toEqual(
+      expect(body).toEqual(
         expect.objectContaining({
           text: 'mock response',
           error: null,
@@ -146,19 +170,20 @@ describe('PromptHttpController (e2e)', () => {
 
   describe('POST /prompt/sync', () => {
     it('prompt가 없으면 400을 반환한다', () => {
-      return request(app.getHttpServer())
+      return request(serverOf(app))
         .post('/prompt/sync')
         .send({ prompt: '' })
         .expect(400);
     });
 
     it('정상 요청 시 JSON 응답을 반환한다', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(serverOf(app))
         .post('/prompt/sync')
         .send({ prompt: 'hello' })
         .expect(200);
+      const body = responseBody<SyncPromptHttpResponse>(res.body);
 
-      expect(res.body).toEqual(
+      expect(body).toEqual(
         expect.objectContaining({
           text: 'mock response',
           error: null,

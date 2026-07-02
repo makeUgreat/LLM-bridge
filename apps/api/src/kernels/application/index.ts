@@ -1,4 +1,4 @@
-export { ApplicationException } from './application.exception.js';
+export { ApplicationException } from './application.exception';
 export {
   APPLICATION_ERROR_KIND,
   type ApplicationErrorBase,
@@ -6,4 +6,4 @@ export {
   type ApplicationErrorKind,
   type ApplicationValidationDetails,
   type ApplicationValidationFieldDetail,
-} from './error.base.js';
+} from './error.base';

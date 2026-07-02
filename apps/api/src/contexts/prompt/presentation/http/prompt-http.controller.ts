@@ -10,15 +10,15 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { TimeoutError } from 'rxjs';
-import { PromptService } from '@contexts/prompt/application/prompt.service.js';
+import { PromptService } from '@contexts/prompt/application/prompt.service';
 import {
   APPLICATION_ERROR_KIND,
   ApplicationException,
-} from '@kernels/application/index.js';
+} from '@kernels/application/index';
 import {
   PromptBodyDto,
   type SyncPromptHttpResponse,
-} from './dto/prompt.http.dto.js';
+} from './dto/prompt.http.dto';
 
 @Controller()
 export class PromptHttpController {
@@ -51,7 +51,11 @@ export class PromptHttpController {
       });
     }
 
-    return { text: result.text, error: result.error, exitCode: result.exitCode };
+    return {
+      text: result.text,
+      error: result.error,
+      exitCode: result.exitCode,
+    };
   }
 
   @Post('prompt/sync')
@@ -70,7 +74,11 @@ export class PromptHttpController {
       }),
     );
 
-    return { text: result.text, error: result.error, exitCode: result.exitCode };
+    return {
+      text: result.text,
+      error: result.error,
+      exitCode: result.exitCode,
+    };
   }
 
   @Post('sessions/:id/prompt')
@@ -103,9 +111,7 @@ export class PromptHttpController {
 
   @Post('prompt')
   @Sse()
-  executeOneShot(
-    @Body() body: PromptBodyDto,
-  ): Observable<MessageEvent> {
+  executeOneShot(@Body() body: PromptBodyDto): Observable<MessageEvent> {
     return this.promptService.executeOneShot({
       prompt: body.prompt,
       workingDir: body.workingDir,
@@ -121,7 +127,10 @@ export class PromptHttpController {
       return await fn();
     } catch (err) {
       if (err instanceof TimeoutError) {
-        throw new HttpException('LLM execution timed out', HttpStatus.GATEWAY_TIMEOUT);
+        throw new HttpException(
+          'LLM execution timed out',
+          HttpStatus.GATEWAY_TIMEOUT,
+        );
       }
       throw err;
     }

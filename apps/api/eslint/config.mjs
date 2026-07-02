@@ -60,6 +60,12 @@ export default tseslint.config(
     },
   },
   {
+    files: ['src/**/__tests__/**/*.ts', 'src/**/*.{spec,test}.ts', 'test/**/*.ts'],
+    rules: {
+      '@typescript-eslint/unbound-method': 'off',
+    },
+  },
+  {
     files: ['src/contexts/**/domain/**/*.ts', 'src/kernels/domain/**/*.ts'],
     ignores: ['src/**/__tests__/**/*.ts', 'src/**/*.{spec,test}.ts'],
     rules: {

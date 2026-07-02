@@ -1,15 +1,15 @@
 import { Module } from '@nestjs/common';
-import { PromptService } from './application/prompt.service.js';
-import { ClaudeCliAdapter } from './infrastructure/claude-cli/claude-cli.adapter.js';
-import { SessionReaderAdapter } from './infrastructure/session/session-reader.adapter.js';
-import { SessionManagerAdapter } from './infrastructure/session/session-manager.adapter.js';
-import { PromptHttpController } from './presentation/http/prompt-http.controller.js';
-import { SessionModule } from '@contexts/session/session.module.js';
+import { PromptService } from '@contexts/prompt/application/prompt.service';
+import { ClaudeCliAdapter } from '@contexts/prompt/infrastructure/claude-cli/claude-cli.adapter';
+import { SessionReaderAdapter } from '@contexts/prompt/infrastructure/session/session-reader.adapter';
+import { SessionManagerAdapter } from '@contexts/prompt/infrastructure/session/session-manager.adapter';
+import { PromptHttpController } from '@contexts/prompt/presentation/http/prompt-http.controller';
+import { SessionModule } from '@contexts/session/session.module';
 import {
   LLM_EXECUTOR,
   SESSION_READER,
   SESSION_MANAGER,
-} from './prompt.di-tokens.js';
+} from './prompt.di-tokens';
 
 @Module({
   imports: [SessionModule],

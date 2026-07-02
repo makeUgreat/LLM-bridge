@@ -1,2 +1,2 @@
-export { Session } from './session.entity.js';
-export { SessionRepository } from './session.repository.js';
+export { Session } from './session.entity';
+export { SessionRepository } from './session.repository';

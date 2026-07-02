@@ -1,15 +1,26 @@
-export class Session {
-  private _claudeSessionId: string | null;
-  private _lastUsedAt: Date;
+import { Entity } from '@kernels/domain/index';
 
+interface SessionProps {
+  claudeSessionId: string | null;
+  lastUsedAt: Date;
+}
+
+export class Session extends Entity<SessionProps> {
   constructor(
-    private readonly _id: string,
+    id: string,
     claudeSessionId: string | null,
-    private readonly _createdAt: Date,
+    createdAt: Date,
     lastUsedAt: Date,
   ) {
-    this._claudeSessionId = claudeSessionId;
-    this._lastUsedAt = lastUsedAt;
+    super({
+      id,
+      createdAt,
+      updatedAt: lastUsedAt,
+      props: {
+        claudeSessionId,
+        lastUsedAt,
+      },
+    });
   }
 
   static create(id: string): Session {
@@ -17,44 +28,55 @@ export class Session {
     return new Session(id, null, now, now);
   }
 
-  get id(): string {
-    return this._id;
-  }
-
   get claudeSessionId(): string | null {
-    return this._claudeSessionId;
-  }
-
-  get createdAt(): Date {
-    return this._createdAt;
+    return this.props.claudeSessionId;
   }
 
   get lastUsedAt(): Date {
-    return this._lastUsedAt;
+    return this.props.lastUsedAt;
   }
 
   attachClaudeSession(claudeSessionId: string): void {
     if (!claudeSessionId || claudeSessionId.trim().length === 0) {
       throw new Error('Claude session ID must not be empty');
     }
-    this._claudeSessionId = claudeSessionId;
-    this._lastUsedAt = new Date();
+    this.props.claudeSessionId = claudeSessionId;
+    this.refreshLastUsedAt();
   }
 
   touch(): void {
-    this._lastUsedAt = new Date();
+    this.refreshLastUsedAt();
   }
 
   isExpired(ttlMs: number, now: Date = new Date()): boolean {
-    return now.getTime() - this._lastUsedAt.getTime() > ttlMs;
+    return now.getTime() - this.props.lastUsedAt.getTime() > ttlMs;
   }
 
   toJSON() {
     return {
-      id: this._id,
-      claudeSessionId: this._claudeSessionId,
-      createdAt: this._createdAt,
-      lastUsedAt: this._lastUsedAt,
+      id: this.id,
+      claudeSessionId: this.props.claudeSessionId,
+      createdAt: this.createdAt,
+      lastUsedAt: this.props.lastUsedAt,
     };
+  }
+
+  validate(): void {
+    if (
+      this.props.claudeSessionId !== null &&
+      this.props.claudeSessionId.trim().length === 0
+    ) {
+      throw new Error('Claude session ID must not be empty');
+    }
+
+    if (Number.isNaN(this.props.lastUsedAt.getTime())) {
+      throw new Error('Session last used at must be a valid date');
+    }
+  }
+
+  private refreshLastUsedAt(): void {
+    const now = new Date();
+    this.props.lastUsedAt = now;
+    this.touchUpdatedAt(now);
   }
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { SessionCleanupService } from '@contexts/session/infrastructure/in-memory/session-cleanup.service.js';
-import { type SessionService } from '@contexts/session/application/session.service.js';
+import { SessionCleanupService } from '@contexts/session/infrastructure/in-memory/session-cleanup.service';
+import { type SessionService } from '@contexts/session/application/session.service';
 
 describe('SessionCleanupService', () => {
   let service: SessionCleanupService;
@@ -11,9 +11,7 @@ describe('SessionCleanupService', () => {
     mockSessionService = {
       removeExpired: vi.fn().mockReturnValue(0),
     };
-    service = new SessionCleanupService(
-      mockSessionService as SessionService,
-    );
+    service = new SessionCleanupService(mockSessionService as SessionService);
   });
 
   afterEach(() => {

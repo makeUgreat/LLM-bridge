@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { SessionService } from '@contexts/session/application/session.service.js';
-import { SessionRepository } from '@contexts/session/domain/index.js';
-import { Session } from '@contexts/session/domain/index.js';
-import { SESSION_REPOSITORY } from '@contexts/session/session.di-tokens.js';
+import { SessionService } from '@contexts/session/application/session.service';
+import { SessionRepository } from '@contexts/session/domain/index';
+import { Session } from '@contexts/session/domain/index';
+import { SESSION_REPOSITORY } from '@contexts/session/session.di-tokens';
 
 describe('SessionService', () => {
   let service: SessionService;

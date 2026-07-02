@@ -1,11 +1,11 @@
-export { AggregateRoot } from './aggregate-root.base.js';
-export { DomainException } from './domain.exception.js';
-export { DomainEvent, type DomainEventParams } from './domain-event.base.js';
+export { AggregateRoot } from './aggregate-root.base';
+export { DomainException } from './domain.exception';
+export { DomainEvent, type DomainEventParams } from './domain-event.base';
 export {
   Entity,
   type AggregateID,
   type CreateEntityProps,
-} from './entity.base.js';
+} from './entity.base';
 export {
   DOMAIN_ERROR_KIND,
   type DomainError,
@@ -13,6 +13,10 @@ export {
   type DomainErrorOf,
   type DomainErrorKind,
   type DomainValidationDetails,
-} from './error.base.js';
-export { newId } from './id-generator.js';
-export { ValueObject, type DomainPrimitive } from './value-object.base.js';
+} from './error.base';
+export { newId } from './id-generator';
+export {
+  ValueObject,
+  type DomainPrimitive,
+  type ValueObjectProps,
+} from './value-object.base';
