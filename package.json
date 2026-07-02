@@ -1,48 +1,26 @@
 {
   "name": "llm-bridge",
-  "version": "1.0.0",
-  "description": "",
-  "main": "dist/main.js",
-  "bin": {
-    "llm-bridge": "./bin/llm-bridge.js"
-  },
+  "version": "0.0.1",
+  "private": true,
+  "license": "UNLICENSED",
   "scripts": {
-    "dev": "ts-node src/main.ts",
-    "build": "tsc",
-    "start": "node dist/main.js",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@anthropic-ai/claude-code": "^2.1.74",
-    "@nestjs/common": "^11.1.16",
-    "@nestjs/core": "^11.1.16",
-    "@nestjs/platform-express": "^11.1.16",
-    "@nestjs/swagger": "^11.2.6",
-    "class-transformer": "^0.5.1",
-    "class-validator": "^0.15.1",
-    "express": "^5.2.1",
-    "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2",
-    "uuid": "^13.0.0"
+    "build": "pnpm --filter @llm-bridge/api build",
+    "start:dev": "pnpm --filter @llm-bridge/api start:dev",
+    "lint": "pnpm --filter @llm-bridge/api lint",
+    "lint:check": "pnpm --filter @llm-bridge/api lint:check",
+    "deps:check": "pnpm --filter @llm-bridge/api deps:check",
+    "deps:graph": "pnpm --filter @llm-bridge/api deps:graph",
+    "harness:static": "pnpm --filter @llm-bridge/api harness:static",
+    "test": "pnpm --filter @llm-bridge/api test",
+    "test:unit": "pnpm --filter @llm-bridge/api test:unit",
+    "test:integration": "pnpm --filter @llm-bridge/api test:integration",
+    "test:integration:all": "pnpm --filter @llm-bridge/api test:integration:all",
+    "typecheck": "pnpm --filter @llm-bridge/api typecheck"
   },
   "devDependencies": {
-    "@nestjs/cli": "^11.0.16",
-    "@nestjs/testing": "^11.1.16",
-    "@types/express": "^5.0.6",
-    "@types/jest": "^30.0.0",
-    "@types/node": "^25.5.0",
-    "@types/supertest": "^7.2.0",
-    "@types/uuid": "^10.0.0",
-    "jest": "^30.3.0",
-    "supertest": "^7.2.2",
-    "ts-jest": "^29.4.6",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "dependency-cruiser": "^17.4.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@swc/core"]
   }
 }

@@ -1,0 +1,37 @@
+import { type DomainEvent } from './domain-event.base.js';
+import { Entity } from './entity.base.js';
+
+type DomainEventByName<
+  TDomainEvent extends DomainEvent,
+  TEventName extends TDomainEvent['eventName'],
+> =
+  Extract<TDomainEvent, { readonly eventName: TEventName }> extends never
+    ? TDomainEvent
+    : Extract<TDomainEvent, { readonly eventName: TEventName }>;
+
+export abstract class AggregateRoot<
+  EntityProps,
+  TDomainEvent extends DomainEvent = DomainEvent,
+> extends Entity<EntityProps> {
+  private _domainEvents: TDomainEvent[] = [];
+
+  get domainEvents(): readonly TDomainEvent[] {
+    return [...this._domainEvents];
+  }
+
+  findEvent<TEventName extends TDomainEvent['eventName']>(
+    eventName: TEventName,
+  ): DomainEventByName<TDomainEvent, TEventName> | undefined {
+    return this._domainEvents.find(
+      (domainEvent) => domainEvent.eventName === eventName,
+    ) as DomainEventByName<TDomainEvent, TEventName> | undefined;
+  }
+
+  clearEvents(): void {
+    this._domainEvents = [];
+  }
+
+  protected addEvent(domainEvent: TDomainEvent): void {
+    this._domainEvents.push(domainEvent);
+  }
+}
